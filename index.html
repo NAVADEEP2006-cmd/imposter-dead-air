@@ -122,7 +122,9 @@ input,select{width:100%;background:var(--hull);border:2px solid var(--hull2);bor
 'use strict';
 const $=s=>document.querySelector(s),app=$('#app');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let ws,S=null,me=JSON.parse(localStorage.getItem('imp-session')||'null'),retry=0,sel=null,introShown=-1,soundOn=localStorage.getItem('imp-snd')!=='0',wsConnected=false;
+let ws,S=null,me=null,retry=0,sel=null,introShown=-1,soundOn=true,wsConnected=false;
+try{me=JSON.parse(localStorage.getItem('imp-session')||'null')}catch{}
+try{soundOn=localStorage.getItem('imp-snd')!=='0'}catch{}
 const talking=new Set();
 
 // ---------- sound (generated, no assets) ----------
@@ -154,7 +156,7 @@ const sfx={
   win:()=>[523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle'),i*120)),
   chat:()=>{beep(587,.07,'sine',.06);setTimeout(()=>beep(880,.09,'sine',.06),70)}
 };
-$('#snd').onclick=()=>{soundOn=!soundOn;localStorage.setItem('imp-snd',soundOn?'1':'0');$('#snd').textContent=soundOn?'🔊':'🔇';sfx.click()};$('#snd').textContent=soundOn?'🔊':'🔇';
+$('#snd').onclick=()=>{soundOn=!soundOn;try{localStorage.setItem('imp-snd',soundOn?'1':'0')}catch{}$('#snd').textContent=soundOn?'🔊':'🔇';sfx.click()};$('#snd').textContent=soundOn?'🔊':'🔇';
 
 function toast(t){document.querySelectorAll('.toast').forEach(e=>e.remove());const e=document.createElement('div');e.className='toast';e.setAttribute('role','alert');e.textContent=t;document.body.append(e);setTimeout(()=>e.remove(),3200)}
 
@@ -194,50 +196,68 @@ function slot(p,x=''){return `<div class="slot ${x} ${p.id===S.you?'me':''} ${p.
 // ---------- connection ----------
 function connect(first){
   clearTimeout(connect.t);
-  const host=window.SERVER_HOST||location.host;
-  const proto=location.protocol==='https:'?'wss://':'ws://';
-  ws=new WebSocket(proto+host);
-
-  ws.onopen=()=>{
-    retry=0;
-    wsConnected=true;
-    hideConnBanner();
-    if(me)tx({t:'resume',code:me.code,id:me.id,token:me.token});
-    updateVoiceUI();
-  };
-
-  ws.onmessage=e=>{
-    let m;
-    try{m=JSON.parse(e.data)}catch{return}
-    if(m.t==='pong')return;
-    if(m.t==='joined'){
-      me={code:m.code,id:m.id,token:m.token};
-      localStorage.setItem('imp-session',JSON.stringify(me));
-    }else if(m.t==='state'){
-      const prev=S;S=m.s;onState(prev);
-    }else if(m.t==='error'){
-      toast(m.msg);
-      if(/expired|not found/i.test(m.msg)){
-        me=null;S=null;
-        localStorage.removeItem('imp-session');
-        render();
+  try{
+    let targetHost = window.SERVER_HOST;
+    if(!targetHost){
+      if(!location.host || location.protocol === 'file:'){
+        targetHost = 'localhost:3000';
+      }else if((location.hostname === 'localhost' || location.hostname === '127.0.0.1') && location.port !== '3000'){
+        targetHost = `${location.hostname}:3000`;
+      }else{
+        targetHost = location.host;
       }
-    }else if(m.t==='rtc'){
-      onRtc(m);
-    }else if(m.t==='speaking'){
-      if(m.v)talking.add(m.id);else talking.delete(m.id);
-      document.querySelectorAll(`[data-id="${m.id}"]`).forEach(el=>el.classList.toggle('talk',!!m.v));
-    }else if(m.t==='chat'){
-      addChatMessage(m);
     }
-  };
+    const proto = (location.protocol === 'https:' && !targetHost.includes('localhost')) ? 'wss://' : 'ws://';
+    ws = new WebSocket(proto + targetHost);
 
-  ws.onclose=()=>{
+    ws.onopen=()=>{
+      retry=0;
+      wsConnected=true;
+      hideConnBanner();
+      if(me)tx({t:'resume',code:me.code,id:me.id,token:me.token});
+      updateVoiceUI();
+    };
+
+    ws.onmessage=e=>{
+      let m;
+      try{m=JSON.parse(e.data)}catch{return}
+      if(m.t==='pong')return;
+      if(m.t==='joined'){
+        me={code:m.code,id:m.id,token:m.token};
+        try{localStorage.setItem('imp-session',JSON.stringify(me))}catch{}
+      }else if(m.t==='state'){
+        const prev=S;S=m.s;onState(prev);
+      }else if(m.t==='error'){
+        toast(m.msg);
+        if(/expired|not found/i.test(m.msg)){
+          me=null;S=null;
+          try{localStorage.removeItem('imp-session')}catch{}
+          render();
+        }
+      }else if(m.t==='rtc'){
+        onRtc(m);
+      }else if(m.t==='speaking'){
+        if(m.v)talking.add(m.id);else talking.delete(m.id);
+        document.querySelectorAll(`[data-id="${m.id}"]`).forEach(el=>el.classList.toggle('talk',!!m.v));
+      }else if(m.t==='chat'){
+        addChatMessage(m);
+      }
+    };
+
+    ws.onclose=()=>{
+      wsConnected=false;
+      if(S)showConnBanner('Connection lost. Reconnecting…');
+      const delay=Math.min(10000,500*Math.pow(1.5,retry++));
+      connect.t=setTimeout(()=>connect(false),delay);
+    };
+
+    ws.onerror=()=>{};
+  }catch(err){
+    console.warn('WebSocket init error:', err);
     wsConnected=false;
-    if(S)showConnBanner('Connection lost. Reconnecting…');
     const delay=Math.min(10000,500*Math.pow(1.5,retry++));
     connect.t=setTimeout(()=>connect(false),delay);
-  };
+  }
 }
 
 const tx=m=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m));else toast('Connecting to server…')};
@@ -264,13 +284,24 @@ function intro(){
 }
 
 // ---------- screens (UI always derives authoritatively from server state) ----------
-function render(){if(!S)return home();const f={lobby,reveal,discussion,voting,results}[S.phase];if(!f)return;app.innerHTML=f();bind()}
+function render(){
+  try{
+    if(!S)return home();
+    const f={lobby,reveal,discussion,voting,results}[S.phase];
+    if(!f)return home();
+    app.innerHTML=f();
+    bind();
+  }catch(err){
+    console.error('Render error:', err);
+    if(app)app.innerHTML=`<div class="panel" style="color:var(--flare);text-align:center"><h3>Display Error</h3><p class="sub">${esc(err.message)}</p><button class="btn alt" onclick="location.reload()">Reload</button></div>`;
+  }
+}
 
 function home(){
   const reconnectPanel = me ? `<div class="panel" style="text-align:center;border-color:var(--ion)"><p class="sub" style="margin:0 0 8px">Session found for room <b style="color:var(--ion)">${esc(me.code)}</b>…</p><button class="btn alt" id="cl-session" style="min-height:38px;padding:6px 12px;font-size:13px">Cancel & Enter New Room</button></div>` : '';
   app.innerHTML=`<h1>IMPOSTER</h1><p class="sub">Dead Air. One of you is faking it. Talk, listen, vote.</p>${reconnectPanel}<div class="panel"><label for="nm">Your name</label><input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text"><div style="height:10px"></div><button class="btn" id="mk">Create room</button></div><div class="panel"><label for="cd">Room code</label><input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase"><div style="height:10px"></div><button class="btn alt" id="jn">Join room</button></div>`;
   const cl=$('#cl-session');
-  if(cl)cl.onclick=()=>{me=null;localStorage.removeItem('imp-session');render()};
+  if(cl)cl.onclick=()=>{me=null;try{localStorage.removeItem('imp-session')}catch{}render()};
   const nm=()=>$('#nm').value.trim()||(toast('Enter a name first.'),'');
   $('#mk').onclick=()=>{const n=nm();if(n)tx({t:'create',name:n})};
   $('#jn').onclick=()=>{const n=nm(),c=$('#cd').value.trim().toUpperCase();if(!n)return;if(c.length!==6)return toast('Room codes have 6 characters.');tx({t:'join',name:n,code:c})};
@@ -311,7 +342,7 @@ function results(){
 
 function bind(){
   const on=(s,f)=>{const e=$(s);if(e)e.onclick=()=>{sfx.click();f(e)}};
-  on('#lv',()=>{tx({t:'leave'});localStorage.removeItem('imp-session');me=null;S=null;closeAllPeers();render()});
+  on('#lv',()=>{tx({t:'leave'});try{localStorage.removeItem('imp-session')}catch{}me=null;S=null;closeAllPeers();render()});
   on('#cp',()=>{
     const text=S.code;
     if(navigator.share){navigator.share({title:'Join my Imposter game!',text:`Join my game: ${text}`}).catch(()=>{})}
