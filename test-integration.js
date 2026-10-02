@@ -128,7 +128,7 @@ async function startServer() {
       stdio: ['ignore', 'pipe', 'pipe']
     });
     serverProcess.stdout.on('data', data => {
-      if (data.toString().includes('Listening')) resolve();
+      if (/listening/i.test(data.toString())) resolve();
     });
     serverProcess.stderr.on('data', data => {
       console.error('Server stderr:', data.toString());

@@ -12,7 +12,13 @@ const TURN_CREDENTIAL = process.env.TURN_CREDENTIAL || '';
 
 // ─── ICE Server config (sent to clients for WebRTC) ───
 function iceServers() {
-  const servers = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
+  const servers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
+  ];
   if (TURN_URL) {
     servers.push({ urls: TURN_URL, username: TURN_USERNAME, credential: TURN_CREDENTIAL });
   }
@@ -82,8 +88,8 @@ wss.on('connection', ws => {
     if (++ws.hits > 20) return;
     let m; try { m = JSON.parse(raw); } catch { return; }
 
-    // Validate message type is a known string
-    if (typeof m.t !== 'string') return;
+    // Validate message is a non-null object and type is a known string
+    if (!m || typeof m !== 'object' || typeof m.t !== 'string') return;
 
     try {
       if (m.t === 'create' || m.t === 'join' || m.t === 'resume') return enter(ws, m);
@@ -115,6 +121,23 @@ wss.on('connection', ws => {
           if (w && x.id !== p.id) send(w, { t: 'speaking', id: p.id, v: !!m.v });
         }
         return; // Don't push state for speaking indicator
+      }
+      else if (m.t === 'chat') {
+        const text = String(m.msg || '').trim().slice(0, 150);
+        if (!text) return;
+        const chatData = {
+          t: 'chat',
+          id: p.id,
+          name: p.name,
+          seed: p.seed,
+          msg: text,
+          time: Date.now()
+        };
+        for (const x of room.players) {
+          const w = socks.get(x.id);
+          if (w) send(w, chatData);
+        }
+        return; // Don't push full game state
       }
       push(room);
     } catch (e) { fail(ws, e); }
