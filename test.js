@@ -215,4 +215,159 @@ t('current speaker disconnecting advances the turn', () => {
   G.endTurn(r, currentSpeaker);
   assert.strictEqual(r.game.order[r.game.turn], nextSpeaker);
 });
+t('next speaker disconnecting skips to subsequent player without shifting order', () => {
+  const { r, ps, host } = lobby(5); G.startGame(r, host); G.beginDiscussion(r);
+  const [s0, s1, s2, s3, s4] = r.game.order;
+  assert.strictEqual(r.game.speakerId, s0);
+  // Next speaker (s1) disconnects
+  const p1 = r.players.find(p => p.id === s1);
+  p1.connected = false;
+  // Current speaker ends turn
+  G.endTurn(r, s0);
+  // Turn should advance directly to s2, skipping disconnected s1
+  assert.strictEqual(r.game.speakerId, s2);
+  // Order array itself must remain completely stable
+  assert.deepStrictEqual(r.game.order, [s0, s1, s2, s3, s4]);
+});
+t('multiple disconnected speakers advance directly to voting if none remain', () => {
+  const { r, ps, host } = lobby(4); G.startGame(r, host); G.beginDiscussion(r);
+  const [s0, s1, s2, s3] = r.game.order;
+  // Disconnect s1, s2, s3
+  r.players.find(p => p.id === s1).connected = false;
+  r.players.find(p => p.id === s2).connected = false;
+  r.players.find(p => p.id === s3).connected = false;
+  // Speaker 0 ends turn
+  G.endTurn(r, s0);
+  // Since all subsequent speakers are disconnected, game transitions to voting immediately
+  assert.strictEqual(r.phase, 'voting');
+});
+t('results snapshot preserves player names even if player disconnects before results', () => {
+  const { r, ps, host } = lobby(4); G.startGame(r, host); G.beginDiscussion(r);
+  const leaver = ps.find(p => p.id !== r.game.impostor && p.id !== host);
+  G.beginVoting(r);
+  // Disconnect leaver and remove from room players
+  G.removePlayer(r, leaver.id);
+  // Remaining 3 players vote
+  const remaining = r.players.filter(p => p.connected);
+  remaining.forEach(p => {
+    const target = remaining.find(x => x.id !== p.id).id;
+    G.castVote(r, p.id, target);
+  });
+  assert.strictEqual(r.phase, 'results');
+  // Check that the leaver is still present in the results snapshot
+  const snapshotPlayer = r.game.result.players.find(p => p.id === leaver.id);
+  assert.ok(snapshotPlayer, 'Disconnected player must be preserved in result snapshot');
+  assert.strictEqual(snapshotPlayer.name, leaver.name);
+  const view = G.viewFor(r, host);
+  assert.ok(view.result.players.some(p => p.name === leaver.name));
+});
+t('host migration during reveal phase', () => {
+  const { r, ps, host } = lobby(4); G.startGame(r, host);
+  assert.strictEqual(r.phase, 'reveal');
+  G.removePlayer(r, host);
+  assert.ok(r.hostId);
+  assert.notStrictEqual(r.hostId, host);
+  assert.ok(['reveal', 'results'].includes(r.phase));
+});
+t('host migration during discussion phase', () => {
+  const { r, ps, host } = lobby(4); G.startGame(r, host); G.beginDiscussion(r);
+  assert.strictEqual(r.phase, 'discussion');
+  G.removePlayer(r, host);
+  assert.ok(r.hostId);
+  assert.notStrictEqual(r.hostId, host);
+  assert.ok(['discussion', 'results'].includes(r.phase));
+});
+t('clearTimer clears timer handle and deadline without throwing', () => {
+  const r = G.createRoom();
+  G.clearTimer(r);
+  assert.strictEqual(r.timer, null);
+  assert.strictEqual(r.deadline, null);
+});
+t('consecutive rounds avoid repeating the same impostor when 4+ players', () => {
+  const { r, ps, host } = toVoting(4); G.resolveVotes(r);
+  const firstImp = r.game.impostor;
+  G.playAgain(r, host);
+  const secondImp = r.game.impostor;
+  assert.notStrictEqual(secondImp, firstImp, 'Consecutive rounds must not assign the same impostor');
+});
+
+// ── Granular Turn Order Disconnect Proofs: A B C D ──
+t('turn order: A disconnects while speaking -> advances to B', () => {
+  const { r, ps, host } = lobby(5); G.startGame(r, host); G.beginDiscussion(r);
+  const [A, B, C, D, E] = r.game.order;
+  assert.strictEqual(r.game.speakerId, A);
+  // A disconnects (not impostor to avoid early finish)
+  const pA = r.players.find(p => p.id === A);
+  pA.connected = false;
+  if (!r.game.completedSpeakers.includes(A)) r.game.completedSpeakers.push(A);
+  G.advanceTurn(r);
+  assert.strictEqual(r.game.speakerId, B, 'Must advance to B');
+  assert.deepStrictEqual(r.game.order, [A, B, C, D, E], 'Order must remain immutable');
+});
+
+t('turn order: B disconnects while speaking -> advances to C', () => {
+  const { r, ps, host } = lobby(5); G.startGame(r, host); G.beginDiscussion(r);
+  const [A, B, C, D, E] = r.game.order;
+  G.endTurn(r, A); // A speaks and ends turn
+  assert.strictEqual(r.game.speakerId, B);
+  const pB = r.players.find(p => p.id === B);
+  pB.connected = false;
+  if (!r.game.completedSpeakers.includes(B)) r.game.completedSpeakers.push(B);
+  G.advanceTurn(r);
+  assert.strictEqual(r.game.speakerId, C, 'Must advance to C');
+  assert.deepStrictEqual(r.game.order, [A, B, C, D, E], 'Order must remain immutable');
+});
+
+t('turn order: C disconnects while speaking -> advances to D', () => {
+  const { r, ps, host } = lobby(5); G.startGame(r, host); G.beginDiscussion(r);
+  const [A, B, C, D, E] = r.game.order;
+  G.endTurn(r, A);
+  G.endTurn(r, B);
+  assert.strictEqual(r.game.speakerId, C);
+  const pC = r.players.find(p => p.id === C);
+  pC.connected = false;
+  if (!r.game.completedSpeakers.includes(C)) r.game.completedSpeakers.push(C);
+  G.advanceTurn(r);
+  assert.strictEqual(r.game.speakerId, D, 'Must advance to D');
+  assert.deepStrictEqual(r.game.order, [A, B, C, D, E], 'Order must remain immutable');
+});
+
+t('turn order: D (last speaker) disconnects while speaking -> advances to voting', () => {
+  const { r, ps, host } = lobby(4); G.startGame(r, host); G.beginDiscussion(r);
+  const [A, B, C, D] = r.game.order;
+  G.endTurn(r, A);
+  G.endTurn(r, B);
+  G.endTurn(r, C);
+  assert.strictEqual(r.game.speakerId, D);
+  const pD = r.players.find(p => p.id === D);
+  pD.connected = false;
+  if (!r.game.completedSpeakers.includes(D)) r.game.completedSpeakers.push(D);
+  G.advanceTurn(r);
+  assert.strictEqual(r.phase, 'voting', 'Must advance to voting when last speaker disconnects');
+});
+
+t('turn order: two future speakers disconnect -> skips both to subsequent player', () => {
+  const { r, ps, host } = lobby(5); G.startGame(r, host); G.beginDiscussion(r);
+  const [A, B, C, D, E] = r.game.order;
+  assert.strictEqual(r.game.speakerId, A);
+  // B and C disconnect while A is speaking
+  r.players.find(p => p.id === B).connected = false;
+  r.players.find(p => p.id === C).connected = false;
+  // A finishes speaking
+  G.endTurn(r, A);
+  // Should skip both B and C and advance directly to D
+  assert.strictEqual(r.game.speakerId, D, 'Must skip disconnected B and C to D');
+  assert.deepStrictEqual(r.game.order, [A, B, C, D, E], 'Order remains immutable');
+});
+
+t('multiple players leaving such that fewer than 3 players remain -> cleanly aborts to lobby', () => {
+  const { r, ps, host } = lobby(5); G.startGame(r, host); G.beginDiscussion(r);
+  // Pick 3 civilians to leave
+  const civs = ps.filter(p => p.id !== r.game.impostor);
+  civs.slice(0, 3).forEach(p => G.removePlayer(r, p.id));
+  assert.strictEqual(r.phase, 'lobby', 'Must abort to lobby when fewer than 3 players remain');
+  assert.strictEqual(r.game, null, 'Game state must be cleared');
+});
+
 console.log(`\n${n} tests passed`); process.exit(0);
+

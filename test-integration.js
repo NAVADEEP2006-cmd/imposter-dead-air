@@ -259,7 +259,7 @@ async function testSecretIsolation() {
     // Record ALL messages from this point
     clients.forEach(c => c.drain());
     clients[0].send({ t: 'start' });
-    await clients[0].waitForPhase('reveal', 5000);
+    await Promise.all(clients.map(c => c.waitForPhase('reveal', 5000)));
 
     // Find the impostor
     const impostor = clients.find(c => c.state.secret && c.state.secret.impostor === true);
@@ -398,7 +398,7 @@ async function testReconnect() {
     clients.slice(1).forEach(c => c.send({ t: 'ready', v: true }));
     await wait(300);
     clients[0].send({ t: 'start' });
-    await clients[0].waitForPhase('reveal');
+    await Promise.all(clients.map(c => c.waitForPhase('reveal', 5000)));
 
     // Save Player 1's credentials
     const savedId = clients[1].id;
@@ -414,7 +414,7 @@ async function testReconnect() {
     await reconnected.connect();
     reconnected.send({ t: 'resume', code, id: savedId, token: savedToken });
     await reconnected.waitFor(m => m.t === 'joined');
-    await wait(500);
+    await reconnected.waitFor(m => m.t === 'state', 5000);
 
     // Verify identity restored
     assert.strictEqual(reconnected.id, savedId, 'Same player ID after reconnect');
@@ -751,7 +751,7 @@ async function testImpostorDisconnect() {
     clients.slice(1).forEach(c => c.send({ t: 'ready', v: true }));
     await wait(300);
     clients[0].send({ t: 'start' });
-    await clients[0].waitForPhase('reveal');
+    await Promise.all(clients.map(c => c.waitForPhase('reveal', 5000)));
 
     // Find the impostor
     const impostor = clients.find(c => c.state.secret && c.state.secret.impostor === true);
@@ -942,6 +942,101 @@ async function testPlayerCounts() {
   });
 }
 
+async function testTurnOrderAndLifecycleDisconnects() {
+  console.log('\n═══ TURN ORDER & SPEAKER DISCONNECT INTEGRATION ═══');
+
+  await test('current speaker disconnect cleanly advances turn to next player', async () => {
+    const clients = [];
+    for (let i = 0; i < 4; i++) {
+      const c = new Client('TO' + i);
+      await c.connect();
+      clients.push(c);
+    }
+    clients[0].send({ t: 'create', name: 'TO0' });
+    await clients[0].waitFor(m => m.t === 'joined');
+    const code = clients[0].code;
+    for (let i = 1; i < 4; i++) {
+      clients[i].send({ t: 'join', name: 'TO' + i, code });
+      await clients[i].waitFor(m => m.t === 'joined');
+    }
+    await wait(200);
+    clients.slice(1).forEach(c => c.send({ t: 'ready', v: true }));
+    await wait(300);
+    clients[0].send({ t: 'start' });
+    await Promise.all(clients.map(c => c.waitForPhase('reveal', 5000)));
+    await Promise.all(clients.map(c => c.waitForPhase('discussion', 12000)));
+
+    const firstSpeakerId = clients[0].state.game.speaker;
+    const order = clients[0].state.game.order;
+    const firstSpeakerClient = clients.find(c => c.id === firstSpeakerId);
+    const expectedNextSpeakerId = order[order.indexOf(firstSpeakerId) + 1];
+
+    // Current speaker disconnects
+    firstSpeakerClient.close();
+    await wait(1000);
+
+    const remaining = clients.filter(c => c !== firstSpeakerClient);
+    assert.strictEqual(remaining[0].state.game.speaker, expectedNextSpeakerId, 'Turn should have advanced to next speaker');
+    assert.deepStrictEqual(remaining[0].state.game.order, order, 'Speaking order array must remain immutable');
+
+    remaining.forEach(c => c.close());
+  });
+
+  await test('reconnect during voting allows casting vote', async () => {
+    const clients = [];
+    for (let i = 0; i < 4; i++) {
+      const c = new Client('RCV' + i);
+      await c.connect();
+      clients.push(c);
+    }
+    clients[0].send({ t: 'create', name: 'RCV0' });
+    await clients[0].waitFor(m => m.t === 'joined');
+    const code = clients[0].code;
+    for (let i = 1; i < 4; i++) {
+      clients[i].send({ t: 'join', name: 'RCV' + i, code });
+      await clients[i].waitFor(m => m.t === 'joined');
+    }
+    await wait(200);
+    clients.slice(1).forEach(c => c.send({ t: 'ready', v: true }));
+    await wait(300);
+    clients[0].send({ t: 'start' });
+    await Promise.all(clients.map(c => c.waitForPhase('reveal', 5000)));
+    await Promise.all(clients.map(c => c.waitForPhase('discussion', 12000)));
+
+    // End turns
+    for (const id of clients[0].state.game.order) {
+      const cl = clients.find(c => c.id === id);
+      if (cl && cl.state.phase === 'discussion' && cl.state.game.speaker === id) {
+        cl.send({ t: 'endturn' });
+        await wait(200);
+      }
+    }
+    await Promise.all(clients.map(c => c.waitForPhase('voting', 5000)));
+
+    // Save P1 credentials and disconnect
+    const savedId = clients[1].id;
+    const savedToken = clients[1].token;
+    clients[1].close();
+    await wait(1000);
+
+    // P1 reconnects
+    const reconnected = new Client('RCV1-reconnected');
+    await reconnected.connect();
+    reconnected.send({ t: 'resume', code, id: savedId, token: savedToken });
+    await reconnected.waitFor(m => m.t === 'joined');
+    await reconnected.waitFor(m => m.t === 'state' && m.s.phase === 'voting', 5000);
+
+    assert.strictEqual(reconnected.state.phase, 'voting', 'Should rejoin in voting phase');
+    // Reconnected player votes
+    const target = reconnected.state.game.roster.find(id => id !== savedId);
+    reconnected.send({ t: 'vote', target });
+    await wait(300);
+    assert.ok(reconnected.state.game.voted.includes(savedId), 'Vote from reconnected player should be recorded');
+
+    clients[0].close(); reconnected.close(); clients[2].close(); clients[3].close();
+  });
+}
+
 // ───────────────── MAIN ─────────────────
 
 async function main() {
@@ -952,8 +1047,6 @@ async function main() {
   try {
     console.log('\nStarting server on port', PORT, '...');
     await startServer();
-    console.log('Server started.');
-
     await testFullGameLifecycle();
     await testSecretIsolation();
     await testReconnect();
@@ -964,6 +1057,7 @@ async function main() {
     await testImpostorDisconnect();
     await testSecurity();
     await testPlayerCounts();
+    await testTurnOrderAndLifecycleDisconnects();
 
   } catch (e) {
     console.error('Fatal error:', e);
