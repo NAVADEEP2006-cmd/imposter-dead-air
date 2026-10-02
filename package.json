@@ -1,0 +1,27 @@
+{
+  "name": "imposter-dead-air",
+  "version": "1.0.0",
+  "description": "Online social-deduction voice party game for 4–12 players",
+  "main": "server.js",
+  "keywords": [
+    "multiplayer",
+    "social-deduction",
+    "webrtc",
+    "voice-chat",
+    "party-game",
+    "websocket",
+    "nodejs"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js",
+    "test:integration": "node test-integration.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0a1a">
+<meta name="description" content="Imposter: Dead Air — Online social-deduction voice party game for 4–12 players. Find the impostor among your crew.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Imposter: Dead Air</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--void:#0b0a1a;--hull:#1a1833;--hull2:#26234a;--flare:#ff5a36;--ion:#46e0d0;--bone:#f1ead8;--dim:#9a96b8;--d:'Bungee',Impact,sans-serif;--b:'Chakra Petch',system-ui,sans-serif;--safe-b:max(8px,env(safe-area-inset-bottom));--safe-t:max(14px,env(safe-area-inset-top))}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{height:100%;margin:0}
+body{background:var(--void);color:var(--bone);font:500 16px/1.4 var(--b);overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:touch}
+body:before{content:"";position:fixed;inset:0;background:radial-gradient(2px 2px at 20% 30%,#fff8,transparent),radial-gradient(1.5px 1.5px at 70% 60%,#fff6,transparent),radial-gradient(2px 2px at 85% 15%,#46e0d088,transparent),radial-gradient(1.5px 1.5px at 40% 85%,#fff6,transparent);background-size:340px 340px;animation:drift 60s linear infinite;pointer-events:none}
+body:after{content:"";position:fixed;inset:0;background:repeating-linear-gradient(0deg,#0000 0 3px,#0003 3px 4px);pointer-events:none}
+@keyframes drift{to{background-position:340px 680px}}
+#app{position:relative;z-index:1;max-width:560px;margin:auto;padding:var(--safe-t) 14px calc(80px + var(--safe-b));min-height:100%}
+h1,h2{font-family:var(--d);font-weight:400;margin:0;line-height:1}h1{font-size:clamp(36px,12vw,64px);transform:rotate(-2deg)}h2{font-size:clamp(22px,5vw,28px)}
+.sub{color:var(--dim)}button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;min-height:48px;touch-action:manipulation;-webkit-appearance:none}
+:focus-visible{outline:3px solid var(--ion);outline-offset:2px}
+.btn{background:var(--flare);color:#190905;font:400 clamp(16px,4vw,18px) var(--d);padding:12px 18px;border-radius:6px;box-shadow:0 5px 0 #8f2a14;width:100%;transition:transform .08s;min-height:52px}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #8f2a14}.btn[disabled]{opacity:.45;pointer-events:none}
+.btn.alt{background:var(--hull2);color:var(--bone);box-shadow:0 5px 0 #0007}
+.btn.green{background:#2dcc70;color:#0a2a14;box-shadow:0 5px 0 #1a7a42}
+input,select{width:100%;background:var(--hull);border:2px solid var(--hull2);border-radius:6px;padding:12px;font-size:16px;-webkit-appearance:none}
+.panel{background:var(--hull);border:2px solid var(--hull2);border-radius:6px;padding:14px;margin:12px 0}
+.code{font:clamp(36px,10vw,44px) var(--d);letter-spacing:.14em;color:var(--ion);text-align:center;user-select:all}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px}
+.slot{position:relative;text-align:center;padding:8px 4px;background:var(--void);border:2px solid var(--hull2);border-radius:6px;font-size:14px;animation:pop .3s;overflow:hidden;word-break:break-word}
+.slot.empty{opacity:.3;border-style:dashed;min-height:100px;display:grid;place-items:center}
+.slot.me{border-color:var(--ion)}.slot.off{opacity:.5}
+.tag{display:block;font-size:12px;color:var(--dim)}.tag.ok{color:var(--ion)}
+@keyframes pop{from{transform:scale(.7);opacity:0}}
+.av{width:64px;height:64px;display:block;margin:auto;animation:bob 3s ease-in-out infinite}
+.slot.talk{border-color:var(--ion);box-shadow:0 0 0 3px #46e0d055}.slot.talk .av{animation:talk .35s ease-in-out infinite alternate}
+.slot.spot{border-color:var(--flare);box-shadow:0 0 0 4px #ff5a3655}.slot.pick{border-color:var(--flare);transform:scale(1.04)}
+.slot.dead .av{animation:none;transform:rotate(80deg) scale(.8);filter:grayscale(1)}
+@keyframes bob{50%{transform:translateY(-3px)}}@keyframes talk{to{transform:translateY(-6px) scale(1.06)}}
+.wave{display:inline-flex;gap:2px;height:12px;align-items:flex-end}.wave i{width:3px;background:var(--ion);height:4px}.talk .wave i{animation:w .4s infinite alternate}.wave i:nth-child(2){animation-delay:.1s}.wave i:nth-child(3){animation-delay:.2s}@keyframes w{to{height:12px}}
+.intro{text-align:center;padding:clamp(12vh,20vh,25vh) 0;animation:fade .8s}.intro h1{color:var(--flare)}
+@keyframes fade{from{opacity:0;transform:scale(1.15)}}
+.card{perspective:800px;margin:20px auto;max-width:340px}.card>div{padding:34px 16px;text-align:center;border:3px solid var(--bone);border-radius:6px;background:var(--hull);animation:flip .7s both}
+.card.imp>div{border-color:var(--flare);background:#2a0f12}.word{font:clamp(26px,7vw,34px) var(--d);color:var(--ion);word-break:break-word}.card.imp .word{color:var(--flare)}
+@keyframes flip{from{transform:rotateY(90deg)}}
+.speaker{text-align:center}.speaker .av{width:100px;height:100px}.speaker h2{color:var(--ion)}
+.timer{font:clamp(22px,6vw,28px) var(--d);color:var(--flare)}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;gap:8px;align-items:center;padding:8px 14px var(--safe-b);background:#0b0a1aee;border-top:2px solid var(--hull2);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.bar button{width:auto;min-width:48px;min-height:48px;padding:0 12px;background:var(--hull2);border-radius:6px;font-size:18px}.bar .st{flex:1;font-size:13px;line-height:1.2}.bar .on{background:var(--ion);color:#06201d}
+.toast{position:fixed;top:calc(var(--safe-t) + 4px);left:50%;transform:translateX(-50%);background:var(--bone);color:#190905;padding:10px 16px;border-radius:6px;z-index:9;max-width:90vw;font-weight:700;animation:pop .3s}
+.vote{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.vote button.slot{min-height:110px;color:inherit;cursor:pointer}
+.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}
+.tally{font:clamp(18px,5vw,22px) var(--d);color:var(--flare)}
+.conn-bar{position:fixed;top:0;left:0;right:0;z-index:10;text-align:center;padding:6px;font-size:13px;font-weight:700;background:#e74c3c;color:#fff;animation:pop .3s}
+.btn-row{display:flex;gap:10px;margin-top:14px}.btn-row>.btn{flex:1}
+@media(prefers-reduced-motion:reduce){*,:before{animation:none!important;transition:none!important}}
+@media(max-width:380px){.slots{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}.av{width:56px;height:56px}.speaker .av{width:80px;height:80px}.vote{grid-template-columns:1fr 1fr;gap:8px}}
+</style></head><body>
+<main id="app" aria-live="polite"></main>
+<div class="bar"><button id="mic" aria-label="Microphone">🎙</button><div class="st" id="vst" role="status">Voice off</div><button id="snd" aria-label="Toggle sound">🔊</button></div>
+<script>
+'use strict';
+const $=s=>document.querySelector(s),app=$('#app');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let ws,S=null,me=JSON.parse(localStorage.getItem('imp-session')||'null'),retry=0,sel=null,introShown=-1,soundOn=localStorage.getItem('imp-snd')!=='0',wsConnected=false;
+const talking=new Set();
+
+// ---------- sound (generated, no assets) ----------
+let ac;function beep(f,d=.12,t='square',v=.05){if(!soundOn)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch{}}
+const sfx={click:()=>beep(520,.06),join:()=>{beep(440);setTimeout(()=>beep(660),90)},turn:()=>{beep(700,.1);setTimeout(()=>beep(900,.15),110)},vote:()=>beep(300,.15,'sawtooth'),reveal:()=>{beep(120,.4,'sawtooth',.08)},win:()=>[523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle'),i*120))};
+$('#snd').onclick=()=>{soundOn=!soundOn;localStorage.setItem('imp-snd',soundOn?'1':'0');$('#snd').textContent=soundOn?'🔊':'🔇';sfx.click()};$('#snd').textContent=soundOn?'🔊':'🔇';
+
+function toast(t){document.querySelectorAll('.toast').forEach(e=>e.remove());const e=document.createElement('div');e.className='toast';e.setAttribute('role','alert');e.textContent=t;document.body.append(e);setTimeout(()=>e.remove(),3200)}
+
+// ---------- connection status banner ----------
+let connBanner=null;
+function showConnBanner(msg){
+  if(!connBanner){connBanner=document.createElement('div');connBanner.className='conn-bar';document.body.append(connBanner)}
+  connBanner.textContent=msg;connBanner.style.display='block';
+}
+function hideConnBanner(){if(connBanner)connBanner.style.display='none'}
+
+// ---------- avatars (original SVG, generated from player seed) ----------
+const BODY=['#ff5a36','#46e0d0','#f7c948','#9b7cff','#6fd06f','#ff8fb7','#5ea6ff','#e8e1c9'];
+function avatar(seed){const c=BODY[seed%8],v=(seed>>3)%3,a=(seed>>5)%4,e=['#fff','#ffe66b','#9ff'][(seed>>7)%3];
+return `<svg class="av" viewBox="0 0 80 80" aria-hidden="true"><ellipse cx="40" cy="74" rx="22" ry="4" fill="#0006"/><rect x="18" y="26" width="44" height="46" rx="22" fill="${c}"/><rect x="10" y="44" width="10" height="20" rx="5" fill="${c}"/><rect x="${v?24:20}" y="34" width="${v===2?36:32}" height="${v===1?10:16}" rx="8" fill="#0b0a1a"/><circle cx="${v?34:32}" cy="40" r="3" fill="${e}"/><circle cx="${v===2?48:44}" cy="40" r="3" fill="${e}"/>${a===0?`<line x1="40" y1="26" x2="40" y2="12" stroke="${c}" stroke-width="3"/><circle cx="40" cy="11" r="4" fill="#fff"/>`:a===1?`<path d="M20 30 L12 14 L30 24Z M60 30 L68 14 L50 24Z" fill="${c}"/>`:a===2?`<rect x="30" y="52" width="20" height="10" rx="3" fill="#0b0a1a" opacity=".5"/>`:``}</svg>`}
+const wave='<span class="wave" aria-hidden="true"><i></i><i></i><i></i></span>';
+const P=id=>S.players.find(p=>p.id===id)||{name:'Someone',seed:0,id:'?',connected:false,ready:false};
+function slot(p,x=''){return `<div class="slot ${x} ${p.id===S.you?'me':''} ${p.connected?'':'off'} ${talking.has(p.id)?'talk':''}" data-id="${p.id}">${avatar(p.seed)}<b>${esc(p.name)}</b>${p.id===S.hostId?' 👑':''}<span class="tag ${p.ready?'ok':''}">${!p.connected?'reconnecting…':p.id===S.hostId?'host':p.ready?'✓ ready':'not ready'}</span>${wave}</div>`}
+
+// ---------- connection ----------
+function connect(first){clearTimeout(connect.t);
+  const host=window.SERVER_HOST||location.host;
+  const proto=location.protocol==='https:'?'wss://':'ws://';
+  ws=new WebSocket(proto+host);
+  ws.onopen=()=>{
+    retry=0;wsConnected=true;hideConnBanner();
+    if(me)tx({t:'resume',code:me.code,id:me.id,token:me.token});
+    else if(first)render();
+    setVoiceStatus();
+  };
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+    if(m.t==='joined'){me={code:m.code,id:m.id,token:m.token};localStorage.setItem('imp-session',JSON.stringify(me))}
+    else if(m.t==='state'){const prev=S;S=m.s;onState(prev)}
+    else if(m.t==='error'){toast(m.msg);if(/expired|not found/i.test(m.msg)){me=null;S=null;localStorage.removeItem('imp-session');render()}}
+    else if(m.t==='rtc')onRtc(m)};
+  ws.onclose=()=>{
+    wsConnected=false;
+    if(S)showConnBanner('Connection lost. Reconnecting…');
+    connect.t=setTimeout(()=>connect(false),Math.min(5000,500*2**retry++));
+  }
+}
+const tx=m=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m));else toast('Not connected yet.')};
+
+function onState(prev){
+  hideConnBanner();
+  if(!prev||prev.phase!==S.phase)sfx[S.phase==='reveal'?'reveal':S.phase==='results'?'win':'click']();
+  if(prev&&S.players.length>prev.players.length)sfx.join();
+  if(prev&&S.game&&S.game.speaker===S.you&&prev.game?.speaker!==S.you)sfx.turn();
+  if(S.phase!=='voting')sel=null;
+  if(S.notice&&(!prev||prev.notice!==S.notice))toast(S.notice);
+  if(S.phase==='reveal'&&introShown!==S.round){introShown=S.round;intro()}else render();
+  syncPeers();
+}
+
+function intro(){
+  app.innerHTML=`<div class="intro"><h1>ROUND ${String(S.round).padStart(2,'0')}</h1><p class="sub">Someone among you is the imposter.</p></div>`;
+  setTimeout(()=>{if(S&&S.phase==='reveal')render()},2200);
+}
+
+// ---------- screens (UI always derives from server state) ----------
+function render(){if(!S)return home();const f={lobby,reveal,discussion,voting,results}[S.phase];if(!f)return;app.innerHTML=f();bind()}
+
+function home(){
+  app.innerHTML=`<h1>IMPOSTER</h1><p class="sub">Dead Air. One of you is faking it. Talk, listen, vote.</p><div class="panel"><label for="nm">Your name</label><input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text"><div style="height:10px"></div><button class="btn" id="mk">Create room</button></div><div class="panel"><label for="cd">Room code</label><input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase"><div style="height:10px"></div><button class="btn alt" id="jn">Join room</button></div>`;
+  const nm=()=>$('#nm').value.trim()||(toast('Enter a name first.'),'');
+  $('#mk').onclick=()=>{const n=nm();if(n)tx({t:'create',name:n})};
+  $('#jn').onclick=()=>{const n=nm(),c=$('#cd').value.trim().toUpperCase();if(!n)return;if(c.length!==6)return toast('Room codes have 6 characters.');tx({t:'join',name:n,code:c})};
+  // Allow Enter key on inputs
+  $('#cd').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#jn').click()}};
+  $('#nm').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#cd')?.focus()}};
+}
+
+function lobby(){
+  const host=S.hostId===S.you,meP=P(S.you),n=S.players.length;
+  const empty=Array.from({length:Math.max(0,4-n)},()=>'<div class="slot empty">·</div>').join('');
+  const others=S.players.filter(p=>p.id!==S.hostId);const ok=n>=4&&others.every(p=>p.ready);
+  return `<div class="row"><h2>ROOM</h2><button class="btn alt" id="lv" style="width:auto;flex:0;font-size:14px;min-height:40px">Leave</button></div><div class="panel"><div class="code" id="cc">${S.code}</div><button class="btn alt" id="cp">📋 Copy invite code</button></div><p class="sub">${n} / 12 players. Need ${Math.max(0,4-n)} more to start.</p><div class="slots">${S.players.map(p=>slot(p)).join('')}${empty}</div>${host?`<div class="panel"><label for="cat">Category</label><select id="cat"><option value="RANDOM">Random each round</option>${CATS.map(c=>`<option ${S.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div><button class="btn" id="go" ${ok?'':'disabled'}>${n<4?'Need '+(4-n)+' more':ok?'Start game':'Waiting for players to ready up'}</button>`:`<button class="btn" id="rd">${meP.ready?'Not ready':"I'm ready"}</button>`}`;
+}
+
+function reveal(){
+  const imp=S.secret.impostor;
+  return `<div class="card ${imp?'imp':''}"><div><p class="sub">${imp?'':'Your word'}</p>${imp?'<div class="word">YOU ARE THE IMPOSTER</div><p>You don\'t know the word. Blend in.</p>':`<div class="word">${esc(S.secret.word)}</div><p class="sub">Category: ${esc(S.game.category)}</p>`}</div></div><p class="sub" style="text-align:center">Memorize it. Discussion starts shortly.</p>`;
+}
+
+function discussion(){
+  const sp=P(S.game.speaker),mine=S.game.speaker===S.you;
+  const turnInfo=`Turn ${S.game.turn+1} of ${S.game.order.length}`;
+  return `<div class="speaker">${avatar(sp.seed)}<p class="sub">${turnInfo} · Current speaker</p><h2>${esc(sp.name)}${mine?' (you)':''}</h2><p>${mine?'Give a clue about the word, then tap done.':'Listen carefully.'}</p><div class="timer" id="tm"></div></div>${mine?'<button class="btn" id="done">Done talking</button>':''}<div class="panel"><b>Speaking order</b><div class="slots" style="margin-top:8px">${S.game.order.map((id,i)=>slot(P(id),i===S.game.turn?'spot':i<S.game.turn?'off':'')).join('')}</div></div>${S.secret.impostor?'<p class="sub">You are the imposter. Bluff.</p>':`<p class="sub">Your word: <b>${esc(S.secret.word)}</b></p>`}`;
+}
+
+function voting(){
+  const voted=S.game.voted.includes(S.you);
+  const remaining=S.game.roster.length-S.game.voted.length;
+  return `<h2>WHO IS THE IMPOSTER?</h2><p class="sub">Vote for the player you think is faking it.</p><div class="timer" id="tm"></div><div class="vote">${S.game.roster.filter(id=>id!==S.you).map(id=>`<button class="slot ${sel===id?'pick':''} ${S.game.voted.includes(id)?'':''}${talking.has(id)?' talk':''}" data-v="${id}" ${voted?'disabled':''}>${avatar(P(id).seed)}<b>${esc(P(id).name)}</b></button>`).join('')}</div><button class="btn" id="cast" style="margin-top:14px" ${voted||!sel?'disabled':''}>${voted?'✓ Vote locked in':'Lock vote'}</button><p class="sub">${voted?`Waiting for ${remaining} more vote${remaining!==1?'s':''}…`:`${S.game.voted.length} / ${S.game.roster.length} voted`}</p>`;
+}
+
+function results(){
+  const r=S.result,won=(r.winner==='impostor')===(r.impostor===S.you);
+  const isHost=S.hostId===S.you;
+  return `<h2>${r.winner==='civilians'?'🎉 CREW WINS':'💀 IMPOSTER WINS'}</h2><p class="${won?'tally':'sub'}">${won?'You won this round!':'Better luck next time.'}</p><p>${esc(r.text)}</p><div class="slots">${S.game.roster.map(id=>`<div class="slot ${id===r.eliminated?'dead':''} ${id===r.impostor?'spot':''}">${avatar(P(id).seed)}<b>${esc(P(id).name)}</b><span class="tally">${r.tally[id]||0} votes</span><span class="tag">${id===r.impostor?'🔴 IMPOSTER':'crew'}${r.votes[id]?' · voted '+esc(P(r.votes[id]).name):''}</span></div>`).join('')}</div><div class="panel">The word was <span class="word">${esc(r.word)}</span></div>${isHost?`<div class="btn-row"><button class="btn green" id="ag">▶ Play again</button><button class="btn alt" id="nx">Back to lobby</button></div>`:'<p class="sub">Waiting for the host to continue…</p>'}`;
+}
+
+function bind(){
+  const on=(s,f)=>{const e=$(s);if(e)e.onclick=()=>{sfx.click();f(e)}};
+  on('#lv',()=>{tx({t:'leave'});localStorage.removeItem('imp-session');me=null;S=null;closeAllPeers();render()});
+  on('#cp',()=>{
+    const text=S.code;
+    if(navigator.share){navigator.share({title:'Join my Imposter game!',text:`Join my game: ${text}`}).catch(()=>{})}
+    else if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>toast('Room code copied!'),()=>toast('Press and hold the code to copy it.'))}
+    else{toast('Press and hold the code to copy it.')}
+  });
+  on('#rd',()=>tx({t:'ready',v:!P(S.you).ready}));
+  on('#go',()=>tx({t:'start'}));
+  on('#done',()=>tx({t:'endturn'}));
+  on('#nx',()=>tx({t:'next'}));
+  on('#ag',()=>tx({t:'again'}));
+  const cat=$('#cat');if(cat)cat.onchange=()=>tx({t:'category',v:cat.value});
+  document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{if(!S.game.voted.includes(S.you)){sel=b.dataset.v;render()}});
+  on('#cast',()=>{tx({t:'vote',target:sel});sfx.vote()});
+}
+
+const CATS=__CATS__;
+
+// ---------- timer display ----------
+let timerInterval=null;
+function startTimer(){
+  clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{
+    const t=$('#tm');
+    if(t&&S?.deadline){
+      const left=Math.max(0,Math.ceil((S.deadline-Date.now())/1000));
+      t.textContent=left+'s';
+      if(left<=10)t.style.color='#ff3333';
+      else t.style.color='';
+    }
+  },250);
+}
+startTimer();
+
+// ---------- voice (WebRTC mesh, signaling through the game server) ----------
+const peers=new Map();let stream=null,micOn=false,voiceOK=null;
+const ICE_SERVERS=__ICE__;
+
+function setVoiceStatus(m){
+  const el=$('#vst');if(!el)return;
+  let status=m||(voiceOK===false?'Voice unavailable':'!stream'?'Tap 🎙 to enable voice':'');
+  if(!m){
+    if(voiceOK===false)status='Voice unavailable';
+    else if(!stream)status='Tap 🎙 to enable voice';
+    else if(micOn)status='🔴 Mic live';
+    else status='Mic muted';
+  }
+  el.textContent=status;
+  const btn=$('#mic');if(!btn)return;
+  btn.classList.toggle('on',micOn);
+  btn.textContent=micOn?'🎙':stream?'🔇':'🎙';
+}
+
+$('#mic').onclick=async()=>{
+  if(!stream){
+    if(!window.isSecureContext){voiceOK=false;toast('Voice requires HTTPS or localhost.');return setVoiceStatus()}
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){voiceOK=false;toast('Your browser does not support microphone access.');return setVoiceStatus()}
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+      voiceOK=true;micOn=true;
+      watch(stream,S?.you);
+      peers.forEach(p=>{
+        const sender=p.tx?.sender;
+        if(sender&&stream)sender.replaceTrack(stream.getAudioTracks()[0]);
+      });
+      syncPeers();
+    }catch(e){
+      voiceOK=false;
+      if(e.name==='NotAllowedError')toast('Microphone permission was denied.');
+      else if(e.name==='NotFoundError')toast('No microphone found.');
+      else toast('Could not access microphone.');
+    }
+  } else {
+    micOn=!micOn;
+    stream.getAudioTracks().forEach(t=>t.enabled=micOn);
+  }
+  setVoiceStatus();
+};
+
+function syncPeers(){
+  if(!S)return;
+  const ids=S.players.filter(p=>p.connected&&p.id!==S.you).map(p=>p.id);
+  // Close peers no longer in the room
+  [...peers.keys()].filter(id=>!ids.includes(id)).forEach(closePeer);
+  // Create peers for new players (lower ID initiates to avoid duplicate offers)
+  if(stream)ids.forEach(id=>{if(!peers.has(id)&&S.you<id)makePeer(id,true)});
+}
+
+function makePeer(id,init){
+  const pc=new RTCPeerConnection({iceServers:ICE_SERVERS});
+  const t=pc.addTransceiver('audio',{direction:'sendrecv'});
+  if(stream)t.sender.replaceTrack(stream.getAudioTracks()[0]);
+  const p={pc,tx:t};peers.set(id,p);
+  pc.onicecandidate=e=>e.candidate&&tx({t:'rtc',to:id,data:{ice:e.candidate}});
+  pc.ontrack=e=>{
+    let a=document.getElementById('a-'+id);
+    if(!a){a=document.createElement('audio');a.id='a-'+id;a.autoplay=true;a.playsInline=true;document.body.append(a)}
+    a.srcObject=e.streams[0];
+    // Resume AudioContext on first track (handles autoplay policy)
+    a.play().catch(()=>{});
+    watch(e.streams[0],id);
+  };
+  pc.onconnectionstatechange=()=>{
+    if(pc.connectionState==='failed'||pc.connectionState==='closed'){
+      closePeer(id);
+      setTimeout(syncPeers,2000);
+    }
+  };
+  if(init)pc.createOffer().then(o=>pc.setLocalDescription(o)).then(()=>tx({t:'rtc',to:id,data:{sdp:pc.localDescription}}));
+  return p;
+}
+
+async function onRtc(m){
+  try{
+    let p=peers.get(m.from);
+    if(m.data.sdp){
+      if(m.data.sdp.type==='offer'){
+        if(p)closePeer(m.from);
+        p=makePeer(m.from,false);
+        await p.pc.setRemoteDescription(m.data.sdp);
+        await p.pc.setLocalDescription(await p.pc.createAnswer());
+        tx({t:'rtc',to:m.from,data:{sdp:p.pc.localDescription}});
+      }else if(p)await p.pc.setRemoteDescription(m.data.sdp);
+    }else if(m.data.ice&&p)await p.pc.addIceCandidate(m.data.ice);
+  }catch(e){
+    // WebRTC negotiation failure — non-fatal
+    console.warn('RTC error:',e);
+  }
+}
+
+function closePeer(id){const p=peers.get(id);if(p){try{p.pc.close()}catch{};peers.delete(id)}document.getElementById('a-'+id)?.remove();talking.delete(id)}
+function closeAllPeers(){[...peers.keys()].forEach(closePeer)}
+
+// ---------- speaking indicator (audio level detection) ----------
+const meters=new Map();
+function watch(st,id){
+  if(!id||meters.has(id))return;
+  try{ac=ac||new AudioContext();const an=ac.createAnalyser();an.fftSize=256;ac.createMediaStreamSource(st).connect(an);meters.set(id,an)}catch{}
+}
+
+let speakingInterval=null;
+function startSpeakingDetection(){
+  clearInterval(speakingInterval);
+  speakingInterval=setInterval(()=>{
+    const buf=new Uint8Array(128);
+    meters.forEach((an,id)=>{
+      an.getByteTimeDomainData(buf);
+      let m=0;buf.forEach(v=>m=Math.max(m,Math.abs(v-128)));
+      const on=m>14&&(id!==S?.you||micOn);
+      if(on!==talking.has(id)){
+        on?talking.add(id):talking.delete(id);
+        document.querySelectorAll(`[data-id="${id}"]`).forEach(e=>e.classList.toggle('talk',on));
+      }
+    });
+  },150);
+}
+startSpeakingDetection();
+
+// ---------- lifecycle ----------
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden){
+    // Resume AudioContext when coming back to foreground
+    if(ac&&ac.state==='suspended')ac.resume();
+    // Reconnect WebSocket if disconnected
+    if(!wsConnected&&ws?.readyState!==WebSocket.OPEN)connect(false);
+  }
+});
+
+window.addEventListener('pagehide',()=>{
+  stream?.getTracks().forEach(t=>t.stop());
+  closeAllPeers();
+});
+
+// Cleanup on navigation
+window.addEventListener('beforeunload',()=>{
+  stream?.getTracks().forEach(t=>t.stop());
+  closeAllPeers();
+  clearInterval(timerInterval);
+  clearInterval(speakingInterval);
+});
+
+setVoiceStatus();connect(true);
+</script></body></html>
