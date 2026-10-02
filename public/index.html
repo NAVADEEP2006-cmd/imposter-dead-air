@@ -118,8 +118,43 @@ input,select{width:100%;background:var(--hull);border:2px solid var(--hull2);bor
   <button id="snd" aria-label="Toggle sound">🔊</button>
 </div>
 
+<script id="app-config">
+window.APP_CONFIG = {
+  categories: ["ANIMALS", "FOOD & DRINK", "PLACES", "OBJECTS", "ACTIVITIES", "POP CULTURE"],
+  ice: {
+    servers: [{ urls: "stun:stun.l.google.com:19302" }],
+    hasTurn: false
+  }
+};
+</script>
 <script>
 'use strict';
+// Startup error boundary to prevent any silent blank screen
+window.addEventListener('error', function(e) {
+  const appEl = document.getElementById('app');
+  if (appEl && (!appEl.children.length || appEl.innerHTML.trim() === '')) {
+    const msg = e && e.message ? e.message : 'Unknown startup error';
+    appEl.innerHTML = `<div class="panel" style="border-color:var(--flare);text-align:center;padding:24px 16px;margin-top:15vh">
+      <h2 style="color:var(--flare);margin-bottom:8px">INITIALIZATION ERROR</h2>
+      <p class="sub" style="margin-bottom:14px">Game failed to initialize. Check server configuration.</p>
+      <pre style="font-size:12px;background:var(--void);padding:8px;border-radius:4px;overflow-x:auto;color:var(--dim);text-align:left">${esc(msg)}</pre>
+      <div style="height:14px"></div>
+      <button class="btn alt" onclick="location.reload()">Reload Application</button>
+    </div>`;
+  }
+});
+
+// Authoritative runtime configuration with robust built-in fallbacks
+const APP_CONFIG = window.APP_CONFIG || {};
+const CATS = (Array.isArray(APP_CONFIG.categories) && APP_CONFIG.categories.length)
+  ? APP_CONFIG.categories
+  : ['ANIMALS', 'FOOD & DRINK', 'PLACES', 'OBJECTS', 'ACTIVITIES', 'POP CULTURE'];
+const ICE_CONFIG = APP_CONFIG.ice || {
+  servers: [{ urls: 'stun:stun.l.google.com:19302' }],
+  hasTurn: false
+};
+const ICE_SERVERS = ICE_CONFIG.servers || ICE_CONFIG;
+const HAS_TURN = !!ICE_CONFIG.hasTurn;
 const $=s=>document.querySelector(s),app=$('#app');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let ws,S=null,me=null,retry=0,sel=null,introShown=-1,soundOn=true,wsConnected=false;
@@ -359,8 +394,6 @@ function bind(){
   on('#cast',()=>{tx({t:'vote',target:sel});sfx.vote()});
 }
 
-const CATS = (typeof __CATS__ !== 'undefined' && Array.isArray(__CATS__)) ? __CATS__ : ['ANIMALS', 'FOOD & DRINK', 'PLACES', 'OBJECTS', 'ACTIVITIES', 'POP CULTURE'];
-
 // ---------- timer display ----------
 let timerInterval=null;
 function startTimer(){
@@ -378,9 +411,6 @@ function startTimer(){
 startTimer();
 
 // ---------- voice (WebRTC mesh + signaling relay) ----------
-const ICE_CONFIG = typeof __ICE__ !== 'undefined' ? __ICE__ : { servers: [{ urls: 'stun:stun.l.google.com:19302' }], hasTurn: false };
-const ICE_SERVERS = ICE_CONFIG.servers || ICE_CONFIG;
-const HAS_TURN = !!ICE_CONFIG.hasTurn;
 
 const peers=new Map(); // id -> { pc, tx, init, disconnectTimer }
 const iceQueues=new Map(); // id -> candidate[]

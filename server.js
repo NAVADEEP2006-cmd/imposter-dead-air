@@ -70,14 +70,22 @@ const server = http.createServer((req, res) => {
       'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
       'X-Content-Type-Options': 'nosniff',
     };
-    // Inject categories and ICE config into HTML
+    // Inject runtime configuration into HTML
     if (file === 'index.html') {
       let html = buf.toString();
-      html = html.replace('__CATS__', JSON.stringify(Object.keys(require('./words.js'))));
-      html = html.replace('__ICE__', JSON.stringify({
-        servers: iceServers(),
-        hasTurn: !!TURN_URL
-      }));
+      const appConfig = {
+        categories: Object.keys(require('./words.js')),
+        ice: {
+          servers: iceServers(),
+          hasTurn: !!TURN_URL
+        }
+      };
+      const configScript = `<script id="app-config">\nwindow.APP_CONFIG = ${JSON.stringify(appConfig)};\n</script>`;
+      if (html.includes('<script id="app-config">')) {
+        html = html.replace(/<script id="app-config">[\s\S]*?<\/script>/, configScript);
+      } else {
+        html = html.replace('<script>', `${configScript}\n<script>`);
+      }
       buf = Buffer.from(html, 'utf-8');
       headers['Content-Length'] = buf.length;
     }
