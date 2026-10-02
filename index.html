@@ -18,13 +18,13 @@ body:after{content:"";position:fixed;inset:0;background:repeating-linear-gradien
 #app{position:relative;z-index:1;max-width:560px;margin:auto;padding:var(--safe-t) 14px calc(80px + var(--safe-b));min-height:100%}
 h1,h2,h3{font-family:var(--d);font-weight:400;margin:0;line-height:1}h1{font-size:clamp(36px,12vw,64px);transform:rotate(-2deg)}h2{font-size:clamp(22px,5vw,28px)}
 .sub{color:var(--dim)}button,input,select{font:inherit;color:inherit}
-button{cursor:pointer;border:0;min-height:48px;touch-action:manipulation;-webkit-appearance:none}
+button{cursor:pointer;border:0;min-height:48px;touch-action:manipulation;appearance:none;-webkit-appearance:none}
 :focus-visible{outline:3px solid var(--ion);outline-offset:2px}
 .btn{background:var(--flare);color:#190905;font:400 clamp(16px,4vw,18px) var(--d);padding:12px 18px;border-radius:6px;box-shadow:0 5px 0 #8f2a14;width:100%;transition:transform .08s;min-height:52px}
 .btn:active{transform:translateY(4px);box-shadow:0 1px 0 #8f2a14}.btn[disabled]{opacity:.45;pointer-events:none}
 .btn.alt{background:var(--hull2);color:var(--bone);box-shadow:0 5px 0 #0007}
 .btn.green{background:#2dcc70;color:#0a2a14;box-shadow:0 5px 0 #1a7a42}
-input,select{width:100%;background:var(--hull);border:2px solid var(--hull2);border-radius:6px;padding:12px;font-size:16px;-webkit-appearance:none}
+input,select{width:100%;background:var(--hull);border:2px solid var(--hull2);border-radius:6px;padding:12px;font-size:16px;appearance:none;-webkit-appearance:none}
 .panel{background:var(--hull);border:2px solid var(--hull2);border-radius:6px;padding:14px;margin:12px 0}
 .code{font:clamp(36px,10vw,44px) var(--d);letter-spacing:.14em;color:var(--ion);text-align:center;user-select:all}
 .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px}
@@ -203,7 +203,6 @@ function connect(first){
     wsConnected=true;
     hideConnBanner();
     if(me)tx({t:'resume',code:me.code,id:me.id,token:me.token});
-    else if(first)render();
     updateVoiceUI();
   };
 
@@ -268,7 +267,10 @@ function intro(){
 function render(){if(!S)return home();const f={lobby,reveal,discussion,voting,results}[S.phase];if(!f)return;app.innerHTML=f();bind()}
 
 function home(){
-  app.innerHTML=`<h1>IMPOSTER</h1><p class="sub">Dead Air. One of you is faking it. Talk, listen, vote.</p><div class="panel"><label for="nm">Your name</label><input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text"><div style="height:10px"></div><button class="btn" id="mk">Create room</button></div><div class="panel"><label for="cd">Room code</label><input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase"><div style="height:10px"></div><button class="btn alt" id="jn">Join room</button></div>`;
+  const reconnectPanel = me ? `<div class="panel" style="text-align:center;border-color:var(--ion)"><p class="sub" style="margin:0 0 8px">Session found for room <b style="color:var(--ion)">${esc(me.code)}</b>…</p><button class="btn alt" id="cl-session" style="min-height:38px;padding:6px 12px;font-size:13px">Cancel & Enter New Room</button></div>` : '';
+  app.innerHTML=`<h1>IMPOSTER</h1><p class="sub">Dead Air. One of you is faking it. Talk, listen, vote.</p>${reconnectPanel}<div class="panel"><label for="nm">Your name</label><input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text"><div style="height:10px"></div><button class="btn" id="mk">Create room</button></div><div class="panel"><label for="cd">Room code</label><input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase"><div style="height:10px"></div><button class="btn alt" id="jn">Join room</button></div>`;
+  const cl=$('#cl-session');
+  if(cl)cl.onclick=()=>{me=null;localStorage.removeItem('imp-session');render()};
   const nm=()=>$('#nm').value.trim()||(toast('Enter a name first.'),'');
   $('#mk').onclick=()=>{const n=nm();if(n)tx({t:'create',name:n})};
   $('#jn').onclick=()=>{const n=nm(),c=$('#cd').value.trim().toUpperCase();if(!n)return;if(c.length!==6)return toast('Room codes have 6 characters.');tx({t:'join',name:n,code:c})};
@@ -326,7 +328,7 @@ function bind(){
   on('#cast',()=>{tx({t:'vote',target:sel});sfx.vote()});
 }
 
-const CATS=__CATS__;
+const CATS = (typeof __CATS__ !== 'undefined' && Array.isArray(__CATS__)) ? __CATS__ : ['ANIMALS', 'FOOD & DRINK', 'PLACES', 'OBJECTS', 'ACTIVITIES', 'POP CULTURE'];
 
 // ---------- timer display ----------
 let timerInterval=null;
@@ -752,6 +754,7 @@ window.addEventListener('beforeunload',()=>{
   clearInterval(speakingInterval);
 });
 
+render();
 updateVoiceUI();
 connect(true);
 </script></body></html>
