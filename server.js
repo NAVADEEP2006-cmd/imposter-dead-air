@@ -183,6 +183,9 @@ wss.on('connection', ws => {
       if (!room) throw new G.Err('Room not found.');
       const p = G.authPlayer(room, ws.ctx.id, ws.ctx.token);
 
+      // Extract roundId from message for stale action prevention
+      const rid = m.roundId || null;
+
       if (m.t === 'ready' && room.phase === 'lobby') {
         p.ready = !!m.v;
       } else if (m.t === 'category' && room.hostId === p.id && room.phase === 'lobby') {
@@ -190,15 +193,15 @@ wss.on('connection', ws => {
       } else if (m.t === 'start') {
         G.startGame(room, p.id);
       } else if (m.t === 'clue') {
-        G.submitClue(room, p.id, m.word);
+        G.submitClue(room, p.id, m.word, rid);
       } else if (m.t === 'ready_discuss') {
-        G.readyDiscussion(room, p.id, m.v);
+        G.readyDiscussion(room, p.id, m.v, rid);
       } else if (m.t === 'vote') {
-        G.castVote(room, p.id, String(m.target));
+        G.castVote(room, p.id, String(m.target), rid);
       } else if (m.t === 'revote') {
-        G.castRevote(room, p.id, String(m.target));
+        G.castRevote(room, p.id, String(m.target), rid);
       } else if (m.t === 'guess') {
-        G.submitFinalGuess(room, p.id, String(m.word));
+        G.submitGuess(room, p.id, String(m.word), rid);
       } else if (m.t === 'next') {
         G.nextRound(room, p.id);
       } else if (m.t === 'again') {
@@ -225,17 +228,27 @@ wss.on('connection', ws => {
         const text = String(m.msg || '').trim().slice(0, 150);
         if (!text) return;
 
+        // Reject chat from spectators in active game phases (they can only observe)
+        if (p.spectator && room.game && room.phase !== 'result') return;
+
+        // Reject messages after certain phase transitions (only allow in discussion, vote, defense, revote, result, lobby)
+        const chatAllowedPhases = ['lobby', 'discussion', 'vote', 'defense', 'revote', 'result'];
+        if (room.game && !chatAllowedPhases.includes(room.phase)) {
+          send(ws, { t: 'chat_rejected', msg: 'Chat is not available during this phase.' });
+          return;
+        }
+
         // CHAT SECURITY:
         // CREW: Messages containing secret word / forbidden variants are rejected.
         // Generic rejection shown ONLY to sender. Message must never appear publicly.
         // IMPOSTER: Messages are NEVER filtered against the secret word.
-        if (room.game && room.phase !== 'results' && p.id !== room.game.impostor && !p.spectator) {
-          const normText = normalize(text);
+        if (room.game && room.phase !== 'result' && p.id !== room.game.impostor && !p.spectator) {
           const targetNorm = normalize(room.game.word);
           const forbiddenNorms = (room.game.wordObj.forbiddenVariants || []).map(normalize);
           const aliasNorms = (room.game.wordObj.aliases || []).map(normalize);
 
           const tokens = text.toLowerCase().split(/[^a-z0-9]+/).map(t => normalize(t)).filter(Boolean);
+          const normText = normalize(text);
           const containsForbidden = tokens.some(t => t === targetNorm || forbiddenNorms.includes(t) || aliasNorms.includes(t)) ||
                                     normText.includes(targetNorm);
 
@@ -280,18 +293,14 @@ wss.on('connection', ws => {
       G.migrateHost(room);
     }
 
-    if (room.phase === 'clues' && room.game) {
-      if (room.game.order[room.game.clueIndex] === p.id) {
-        G.submitClue(room, p.id, 'NO CLUE');
+    // Phase-specific disconnect handling
+    if (room.game) {
+      if (room.phase === 'clues' && room.game.order[room.game.clueIndex] === p.id) {
+        // Don't call submitClue (it would validate); record NO CLUE directly
+        const g = room.game;
+        g.clues.push({ pid: p.id, text: 'NO CLUE', position: g.clueIndex, timedOut: true, time: Date.now() });
+        G.advanceClue(room);
       }
-      G.checkAbort(room, p);
-    } else if (room.phase === 'discussion' && room.game) {
-      G.checkAbort(room, p);
-    } else if (room.phase === 'voting' && room.game) {
-      G.checkAbort(room, p);
-    } else if (room.phase === 'tie_revote' && room.game) {
-      G.checkAbort(room, p);
-    } else if (room.phase === 'reveal') {
       G.checkAbort(room, p);
     }
     push(room);

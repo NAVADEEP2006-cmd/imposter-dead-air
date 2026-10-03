@@ -3,15 +3,23 @@ const crypto = require('crypto');
 const WORDS = require('./words.js');
 const { normalize, levenshtein } = require('./scripts/validate-words.js');
 
+// ─── CONSTANTS ───
 const MIN = 4, MAX = 10;
 const REVEAL_MS = 10000;
+const CLUE_MIN_LEN = 2;
+const CLUE_MAX_LEN = 24;
 const CLUE_CAP_MS = 25000;
+const DISCUSS_MS_SMALL = 90000;   // 4-5 players
+const DISCUSS_MS_MED = 120000;    // 6-8 players
+const DISCUSS_MS_LARGE = 150000;  // 9-10 players
 const VOTE_MS = 30000;
-const TIE_DEFENSE_MS = 15000;
-const TIE_REVOTE_MS = 20000;
-const VERDICT_MS = 5000;
-const FINAL_GUESS_MS = 30000;
+const DEFENSE_MS = 15000;
+const REVOTE_MS = 20000;
+const GUESS_MS = 30000;
 const GRACE_MS = 30000;
+
+// Phases (V1 locked names)
+const PHASES = ['lobby', 'reveal', 'clues', 'discussion', 'vote', 'defense', 'revote', 'guess', 'result'];
 
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const int = n => crypto.randomInt(n);
@@ -47,6 +55,10 @@ function makeCode() {
   return c;
 }
 
+function genRoundId() {
+  return crypto.randomBytes(8).toString('hex');
+}
+
 function createRoom() {
   const room = {
     code: makeCode(),
@@ -54,6 +66,7 @@ function createRoom() {
     players: [],
     hostId: null,
     round: 0,
+    roundId: null,
     game: null,
     lastOrder: null,
     lastImpostor: null,
@@ -64,6 +77,7 @@ function createRoom() {
     deadline: null,
     timerToken: null,
     timerPhase: null,
+    timerRoundId: null,
     notice: null,
     stats: {
       clueRejections: 0,
@@ -117,7 +131,7 @@ function removePlayer(room, id) {
     delete room.game.votes[id];
     delete room.game.revotes[id];
 
-    // Clue turn disconnect handling
+    // Clue turn disconnect handling: record NO CLUE directly (no validation)
     if (room.phase === 'clues' && room.game.order[room.game.clueIndex] === id) {
       recordClue(room, id, 'NO CLUE', true);
       advanceClue(room);
@@ -139,21 +153,21 @@ function checkAbort(room, leftPlayer) {
 
   const connectedActive = room.players.filter(p => g.roster.includes(p.id) && p.connected);
 
-  // If Imposter leaves permanently or disconnects mid-round without returning
+  // If Imposter leaves permanently → void round
   if (leftPlayer && leftPlayer.id === g.impostor) {
     telemetry.imposterDisconnects++;
     telemetry.voidedRounds++;
     return toLobby(room, 'The imposter left the game. Round voided.');
   }
 
-  // Fewer than 4 players remaining -> round voided
+  // Fewer than 4 active players → void round
   if (connectedActive.length < MIN) {
     telemetry.voidedRounds++;
     return toLobby(room, 'Fewer than 4 players remain. Round voided.');
   }
 
-  if (room.phase === 'voting') maybeResolveVotes(room);
-  if (room.phase === 'tie_revote') maybeResolveRevotes(room);
+  if (room.phase === 'vote') maybeResolveVotes(room);
+  if (room.phase === 'revote') maybeResolveRevotes(room);
   if (room.phase === 'discussion') maybeResolveDiscussionReady(room);
 }
 
@@ -165,19 +179,22 @@ function clearTimer(room) {
   room.deadline = null;
   room.timerToken = null;
   room.timerPhase = null;
+  room.timerRoundId = null;
 }
 
 function armPhase(room, phase, ms, fn) {
   clearTimer(room);
-  const r = room.round;
+  const rid = room.roundId;
   const tokenInstance = crypto.randomBytes(8).toString('hex');
   room.phase = phase;
   room.timerPhase = phase;
   room.timerToken = tokenInstance;
+  room.timerRoundId = rid;
   room.deadline = Date.now() + ms;
 
   room.timer = setTimeout(() => {
-    if (room.round === r && room.phase === phase && room.timerToken === tokenInstance) {
+    // STALE TIMER GUARD: Verify roundId AND phase AND token all match
+    if (room.roundId === rid && room.phase === phase && room.timerToken === tokenInstance) {
       fn();
     }
   }, ms);
@@ -187,6 +204,7 @@ function toLobby(room, notice) {
   clearTimer(room);
   room.phase = 'lobby';
   room.game = null;
+  room.roundId = null;
   room.notice = notice || null;
   room.players = room.players.filter(p => p.connected);
   room.players.forEach(p => {
@@ -197,6 +215,7 @@ function toLobby(room, notice) {
   if (!room.players.some(p => p.id === room.hostId && p.connected)) {
     migrateHost(room);
   }
+  room.onChange();
 }
 
 function randomOrder(ids, last) {
@@ -246,6 +265,7 @@ function startGame(room, byId) {
 
   room.players = readyPlayers;
   room.round++;
+  room.roundId = genRoundId();
 
   const { category, wordObj } = selectCategoryAndWord(room);
   const ids = readyPlayers.map(p => p.id);
@@ -277,6 +297,8 @@ function startGame(room, byId) {
     votes: {},
     tiedCandidates: [],
     revotes: {},
+    caughtId: null,
+    tally: null,
     finalGuess: null,
     result: null,
     startTime: Date.now()
@@ -341,21 +363,22 @@ function advanceClue(room) {
   }
 }
 
-function submitClue(room, pid, text) {
+function submitClue(room, pid, text, roundId) {
   const g = room.game;
   if (room.phase !== 'clues') throw new Err('Not the clues phase.');
+  if (roundId && roundId !== room.roundId) throw new Err('Stale action from a previous round.');
   if (g.order[g.clueIndex] !== pid) throw new Err("It's not your turn to submit a clue.");
 
   const clue = String(text || '').trim();
-  // Clue requirement: exactly one alphabetic token, reasonable length limit (<= 24 chars)
-  if (!clue || !/^[A-Za-z]+$/.test(clue) || clue.length > 24) {
-    throw new Err('Clue must be a single word containing only letters (max 24 characters).');
+  // Clue requirement: exactly one alphabetic token, configurable min/max length
+  if (!clue || !/^[A-Za-z]+$/.test(clue) || clue.length < CLUE_MIN_LEN || clue.length > CLUE_MAX_LEN) {
+    throw new Err(`Clue must be a single word containing only letters (${CLUE_MIN_LEN}-${CLUE_MAX_LEN} characters).`);
   }
 
   const norm = normalize(clue);
 
   // Duplicate detection with lightweight normalization
-  const isDuplicate = g.clues.some(c => normalize(c.text) === norm);
+  const isDuplicate = g.clues.some(c => !c.timedOut && normalize(c.text) === norm);
   if (isDuplicate) {
     room.stats.duplicateRejections++;
     throw new Err('That clue was already used. Choose another word.');
@@ -388,9 +411,9 @@ function beginDiscussion(room) {
 
   const count = g.roster.length;
   // Dynamic duration: 4-5 players: 90s; 6-8 players: 120s; 9-10 players: 150s
-  let durationMs = 120000;
-  if (count <= 5) durationMs = 90000;
-  else if (count >= 9) durationMs = 150000;
+  let durationMs = DISCUSS_MS_MED;
+  if (count <= 5) durationMs = DISCUSS_MS_SMALL;
+  else if (count >= 9) durationMs = DISCUSS_MS_LARGE;
 
   g.discussionStart = Date.now();
   room.players.forEach(p => { p.discussReady = false; });
@@ -399,8 +422,9 @@ function beginDiscussion(room) {
   room.onChange();
 }
 
-function readyDiscussion(room, pid, v) {
+function readyDiscussion(room, pid, v, roundId) {
   if (room.phase !== 'discussion') throw new Err('Not the discussion phase.');
+  if (roundId && roundId !== room.roundId) throw new Err('Stale action from a previous round.');
   const p = room.players.find(x => x.id === pid);
   if (!p || !room.game.roster.includes(pid)) throw new Err('You are not active in this round.');
 
@@ -411,6 +435,7 @@ function readyDiscussion(room, pid, v) {
 
 function maybeResolveDiscussionReady(room) {
   if (room.phase !== 'discussion') return;
+  // Disconnected/grace players must NOT permanently block the phase
   const activeConnected = room.players.filter(p => room.game.roster.includes(p.id) && p.connected);
   if (activeConnected.length > 0 && activeConnected.every(p => p.discussReady)) {
     beginVoting(room);
@@ -420,18 +445,24 @@ function maybeResolveDiscussionReady(room) {
 // ─── VOTING PHASE ───
 function beginVoting(room) {
   if (!['discussion', 'clues'].includes(room.phase)) return;
-  room.phase = 'voting';
+  room.phase = 'vote';
   room.game.votes = {};
-  armPhase(room, 'voting', VOTE_MS, () => resolveVotes(room));
+  armPhase(room, 'vote', VOTE_MS, () => resolveVotes(room));
   room.onChange();
 }
 
-function castVote(room, id, target) {
+function castVote(room, id, target, roundId) {
   const g = room.game;
-  if (room.phase !== 'voting') throw new Err('Voting is closed.');
+  if (room.phase !== 'vote') throw new Err('Voting is closed.');
+  if (roundId && roundId !== room.roundId) throw new Err('Stale action from a previous round.');
   if (!g.roster.includes(id)) throw new Err('You are not in this round.');
   if (id in g.votes) throw new Err('You already voted.');
-  if (target === id || !g.roster.includes(target)) throw new Err('Pick another player.');
+  if (target === id) throw new Err('You cannot vote for yourself.');
+  if (!g.roster.includes(target)) throw new Err('Invalid vote target.');
+
+  // Verify target is a current active player
+  const targetPlayer = room.players.find(p => p.id === target);
+  if (!targetPlayer) throw new Err('Invalid vote target.');
 
   g.votes[id] = target;
   maybeResolveVotes(room);
@@ -440,7 +471,7 @@ function castVote(room, id, target) {
 
 function maybeResolveVotes(room) {
   const g = room.game;
-  if (!g || room.phase !== 'voting') return;
+  if (!g || room.phase !== 'vote') return;
   const voters = room.players.filter(p => g.roster.includes(p.id) && p.connected);
   if (voters.length > 0 && voters.every(p => p.id in g.votes)) {
     resolveVotes(room);
@@ -448,7 +479,7 @@ function maybeResolveVotes(room) {
 }
 
 function resolveVotes(room) {
-  if (room.phase !== 'voting') return;
+  if (room.phase !== 'vote') return;
   const g = room.game;
   const tally = {};
   Object.values(g.votes).forEach(t => { tally[t] = (tally[t] || 0) + 1; });
@@ -463,46 +494,47 @@ function resolveVotes(room) {
   const top = Math.max(0, ...Object.values(tally));
   const leaders = Object.keys(tally).filter(k => tally[k] === top);
 
-  // TIE HANDLING: All player counts use the same rule
+  // TIE HANDLING → DEFENSE phase
   if (leaders.length > 1) {
     room.stats.ties++;
-    return beginTieDefense(room, leaders, tally);
+    return beginDefense(room, leaders, tally);
   }
 
   const eliminated = leaders[0];
   if (eliminated === g.impostor) {
-    // Plurality on Imposter -> Imposter gets Final Guess!
-    return beginVerdict(room, eliminated, tally);
+    // Plurality on Imposter → GUESS (final guess)
+    return beginGuessSetup(room, eliminated, tally);
   } else {
-    // Plurality on innocent -> Imposter wins immediately
+    // Plurality on innocent → Imposter wins immediately
     return finish(room, 'impostor', eliminated, 'The crew voted out an innocent. The imposter wins!', tally);
   }
 }
 
-// ─── TIE DEFENSE & REVOTE ───
-function beginTieDefense(room, tiedCandidates, tally) {
-  room.phase = 'tie_defense';
+// ─── DEFENSE & REVOTE ───
+function beginDefense(room, tiedCandidates, tally) {
+  room.phase = 'defense';
   room.game.tiedCandidates = tiedCandidates;
   room.game.tally = tally;
-  armPhase(room, 'tie_defense', TIE_DEFENSE_MS, () => beginTieRevote(room));
+  armPhase(room, 'defense', DEFENSE_MS, () => beginRevote(room));
   room.onChange();
 }
 
-function beginTieRevote(room) {
-  if (room.phase !== 'tie_defense') return;
-  room.phase = 'tie_revote';
+function beginRevote(room) {
+  if (room.phase !== 'defense') return;
+  room.phase = 'revote';
   room.game.revotes = {};
-  armPhase(room, 'tie_revote', TIE_REVOTE_MS, () => resolveTieRevote(room));
+  armPhase(room, 'revote', REVOTE_MS, () => resolveRevote(room));
   room.onChange();
 }
 
-function castRevote(room, id, target) {
+function castRevote(room, id, target, roundId) {
   const g = room.game;
-  if (room.phase !== 'tie_revote') throw new Err('Revoting is closed.');
+  if (room.phase !== 'revote') throw new Err('Revoting is closed.');
+  if (roundId && roundId !== room.roundId) throw new Err('Stale action from a previous round.');
   if (!g.roster.includes(id)) throw new Err('You are not in this round.');
   if (id in g.revotes) throw new Err('You already voted.');
   if (!g.tiedCandidates.includes(target)) throw new Err('You can only vote for a tied player.');
-  if (target === id) throw new Err('Tied players cannot vote for themselves.');
+  if (target === id) throw new Err('You cannot vote for yourself.');
 
   g.revotes[id] = target;
   maybeResolveRevotes(room);
@@ -511,15 +543,15 @@ function castRevote(room, id, target) {
 
 function maybeResolveRevotes(room) {
   const g = room.game;
-  if (!g || room.phase !== 'tie_revote') return;
+  if (!g || room.phase !== 'revote') return;
   const voters = room.players.filter(p => g.roster.includes(p.id) && p.connected);
   if (voters.length > 0 && voters.every(p => p.id in g.revotes)) {
-    resolveTieRevote(room);
+    resolveRevote(room);
   }
 }
 
-function resolveTieRevote(room) {
-  if (room.phase !== 'tie_revote') return;
+function resolveRevote(room) {
+  if (room.phase !== 'revote') return;
   const g = room.game;
   const tally = {};
   Object.values(g.revotes).forEach(t => { tally[t] = (tally[t] || 0) + 1; });
@@ -539,30 +571,28 @@ function resolveTieRevote(room) {
 
   const eliminated = leaders[0];
   if (eliminated === g.impostor) {
-    return beginVerdict(room, eliminated, tally);
+    return beginGuessSetup(room, eliminated, tally);
   } else {
     return finish(room, 'impostor', eliminated, 'The crew voted out an innocent in the revote. The imposter wins!', tally);
   }
 }
 
-// ─── VERDICT & FINAL GUESS ───
-function beginVerdict(room, caughtId, tally) {
-  room.phase = 'verdict';
+// ─── GUESS (Final Guess) ───
+function beginGuessSetup(room, caughtId, tally) {
+  // Brief transition showing who was caught, then immediately to guess
   room.game.caughtId = caughtId;
   room.game.tally = tally;
-  armPhase(room, 'verdict', VERDICT_MS, () => beginFinalGuess(room));
-  room.onChange();
+  beginGuess(room);
 }
 
-function beginFinalGuess(room) {
-  if (room.phase !== 'verdict') return;
-  room.phase = 'final_guess';
+function beginGuess(room) {
+  room.phase = 'guess';
   room.game.finalGuess = null;
-  armPhase(room, 'final_guess', FINAL_GUESS_MS, () => resolveFinalGuess(room, null));
+  armPhase(room, 'guess', GUESS_MS, () => resolveGuess(room, null));
   room.onChange();
 }
 
-function evaluateFinalGuess(guess, wordObj) {
+function evaluateGuess(guess, wordObj) {
   if (!guess || typeof guess !== 'string') return false;
   const gNorm = normalize(guess);
   if (!gNorm) return false;
@@ -587,20 +617,21 @@ function evaluateFinalGuess(guess, wordObj) {
   return false;
 }
 
-function submitFinalGuess(room, pid, guessWord) {
+function submitGuess(room, pid, guessWord, roundId) {
   const g = room.game;
-  if (room.phase !== 'final_guess') throw new Err('Not the final guess phase.');
+  if (room.phase !== 'guess') throw new Err('Not the final guess phase.');
+  if (roundId && roundId !== room.roundId) throw new Err('Stale action from a previous round.');
   if (pid !== g.impostor) throw new Err('Only the caught imposter can make the final guess.');
   if (g.finalGuess !== null) throw new Err('Final guess has already been submitted.');
 
   const cleanGuess = String(guessWord || '').trim().slice(0, 30);
-  resolveFinalGuess(room, cleanGuess);
+  resolveGuess(room, cleanGuess);
 }
 
-function resolveFinalGuess(room, guessWord) {
-  if (room.phase !== 'final_guess') return;
+function resolveGuess(room, guessWord) {
+  if (room.phase !== 'guess') return;
   const g = room.game;
-  const correct = evaluateFinalGuess(guessWord, g.wordObj);
+  const correct = evaluateGuess(guessWord, g.wordObj);
 
   g.finalGuess = {
     attempted: !!guessWord,
@@ -618,7 +649,7 @@ function resolveFinalGuess(room, guessWord) {
 // ─── RESULTS & TELEMETRY ───
 function finish(room, winner, eliminated, text, tally) {
   clearTimer(room);
-  room.phase = 'results';
+  room.phase = 'result';
   const g = room.game;
 
   g.result = {
@@ -638,6 +669,7 @@ function finish(room, winner, eliminated, text, tally) {
 
   telemetry.rounds.push({
     round: room.round,
+    roundId: room.roundId,
     playerCount: g.roster.length,
     category: g.category,
     word: g.word,
@@ -661,13 +693,13 @@ function finish(room, winner, eliminated, text, tally) {
 
 function nextRound(room, byId) {
   if (room.hostId !== byId) throw new Err('Only the host can continue.');
-  if (room.phase !== 'results') throw new Err('The round is not over yet.');
+  if (room.phase !== 'result') throw new Err('The round is not over yet.');
   toLobby(room);
 }
 
 function playAgain(room, byId) {
   if (room.hostId !== byId) throw new Err('Only the host can continue.');
-  if (room.phase !== 'results') throw new Err('The round is not over yet.');
+  if (room.phase !== 'result') throw new Err('The round is not over yet.');
   const ready = room.players.filter(p => p.connected && !p.spectator);
   if (ready.length < MIN) {
     toLobby(room, `Not enough players to continue. Need ${MIN}.`);
@@ -691,6 +723,7 @@ function viewFor(room, pid) {
     code: room.code,
     phase: room.phase,
     round: room.round,
+    roundId: room.roundId,
     hostId: room.hostId,
     you: pid,
     spectator: isSpectator,
@@ -721,14 +754,15 @@ function viewFor(room, pid) {
     voted: Object.keys(g.votes),
     revoted: Object.keys(g.revotes),
     tiedCandidates: g.tiedCandidates ? [...g.tiedCandidates] : [],
+    caughtId: g.caughtId || null,
     roster: [...g.roster]
   };
 
-  // REVEAL, CLUES, DISCUSSION, VOTING, TIE_DEFENSE, TIE_REVOTE, VERDICT, FINAL_GUESS:
+  // All phases before result:
   // Crew receives role + category + secret word + notes
   // Imposter receives role + category ONLY (NO WORD)
   // Spectator receives public state only (NO WORD, NO ROLE)
-  if (room.phase !== 'results') {
+  if (room.phase !== 'result') {
     if (isSpectator) {
       v.secret = null;
     } else if (isImp) {
@@ -742,8 +776,8 @@ function viewFor(room, pid) {
     }
   }
 
-  // RESULTS: Complete round information unmasked for all
-  if (room.phase === 'results') {
+  // RESULT: Complete round information unmasked for all
+  if (room.phase === 'result') {
     v.result = {
       ...g.result,
       impostor: g.impostor,
@@ -785,15 +819,15 @@ module.exports = {
   beginVoting,
   castVote,
   resolveVotes,
-  beginTieDefense,
-  beginTieRevote,
+  beginDefense,
+  beginRevote,
   castRevote,
-  resolveTieRevote,
-  beginVerdict,
-  beginFinalGuess,
-  submitFinalGuess,
-  resolveFinalGuess,
-  evaluateFinalGuess,
+  resolveRevote,
+  beginGuessSetup,
+  beginGuess,
+  submitGuess,
+  resolveGuess,
+  evaluateGuess,
   nextRound,
   playAgain,
   viewFor,
@@ -803,6 +837,9 @@ module.exports = {
   clearTimer,
   armPhase,
   checkAbort,
+  PHASES,
   MIN,
-  MAX
+  MAX,
+  CLUE_MIN_LEN,
+  CLUE_MAX_LEN
 };
