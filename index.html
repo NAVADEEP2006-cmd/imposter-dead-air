@@ -308,10 +308,10 @@ setInterval(()=>{
 
 function onState(prev){
   hideConnBanner();
-  if(!prev||prev.phase!==S.phase)sfx[S.phase==='reveal'?'reveal':S.phase==='results'?'win':'click']();
+  if(!prev||prev.phase!==S.phase)sfx[S.phase==='reveal'?'reveal':(S.phase==='result'||S.phase==='results')?'win':'click']();
   if(prev&&S.players.length>prev.players.length)sfx.join();
   if(prev&&S.game&&S.game.speaker===S.you&&prev.game?.speaker!==S.you)sfx.turn();
-  if(S.phase!=='voting')sel=null;
+  if(S.phase!=='vote'&&S.phase!=='voting'&&S.phase!=='revote'&&S.phase!=='tie_revote')sel=null;
   if(S.notice&&(!prev||prev.notice!==S.notice))toast(S.notice);
   if(S.phase==='reveal'&&introShown!==S.round){introShown=S.round;intro()}else render();
   syncPeers();
@@ -326,7 +326,23 @@ function intro(){
 function render(){
   try{
     if(!S)return home();
-    const f={lobby,reveal,clues,discussion,voting,tie_defense,tie_revote,verdict,final_guess,results}[S.phase];
+    const f={
+      lobby,
+      reveal,
+      clues,
+      discussion,
+      vote: voting,
+      voting,
+      defense: tie_defense,
+      tie_defense,
+      revote: tie_revote,
+      tie_revote,
+      verdict,
+      guess: final_guess,
+      final_guess,
+      result: results,
+      results
+    }[S.phase];
     if(!f)return home();
     app.innerHTML=f();
     bind();
@@ -478,7 +494,7 @@ function bind(){
       const inp=$('#clue-in');
       const val=(inp?.value||'').trim();
       if(!val)return toast('Type a clue first.');
-      tx({t:'clue',word:val});
+      tx({t:'clue',word:val,roundId:S?.roundId});
     };
   }
   const clueIn=$('#clue-in');
@@ -487,15 +503,15 @@ function bind(){
   }
 
   // Discussion ready toggle
-  on('#rd-disc',()=>tx({t:'ready_discuss',v:!P(S.you).discussReady}));
+  on('#rd-disc',()=>tx({t:'ready_discuss',v:!P(S.you).discussReady,roundId:S?.roundId}));
 
   // Voting
   document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{if(!S.game.voted.includes(S.you)){sel=b.dataset.v;render()}});
-  on('#cast',()=>{tx({t:'vote',target:sel});sfx.vote()});
+  on('#cast',()=>{tx({t:'vote',target:sel,roundId:S?.roundId});sfx.vote()});
 
   // Revoting
   document.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{if(!S.game.revoted.includes(S.you)){sel=b.dataset.rv;render()}});
-  on('#cast-revote',()=>{tx({t:'revote',target:sel});sfx.vote()});
+  on('#cast-revote',()=>{tx({t:'revote',target:sel,roundId:S?.roundId});sfx.vote()});
 
   // Final guess submission
   const guessSub=$('#guess-sub');
@@ -504,7 +520,7 @@ function bind(){
       const inp=$('#guess-in');
       const val=(inp?.value||'').trim();
       if(!val)return toast('Type your guess first.');
-      tx({t:'guess',word:val});
+      tx({t:'guess',word:val,roundId:S?.roundId});
     };
   }
   const guessIn=$('#guess-in');

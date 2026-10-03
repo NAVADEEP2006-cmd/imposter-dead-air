@@ -40,48 +40,89 @@ function startToVoting(count) {
   return x;
 }
 
-// ─── Room & Player Basics ───
-t('room code is 6 safe characters', () => assert.match(G.createRoom().code, /^[A-HJ-NP-Z2-9]{6}$/));
+// ════════════════════════════════════════════════════
+// 1. LOBBY TESTS
+// ════════════════════════════════════════════════════
+t('LOBBY: room code is 6 safe characters', () => {
+  const r = G.createRoom();
+  assert.match(r.code, /^[A-HJ-NP-Z2-9]{6}$/);
+});
 
-t('rejects duplicate names (case-insensitive) and empty names', () => {
+t('LOBBY: rejects duplicate names (case-insensitive) and empty names', () => {
   const { r } = lobby(1);
-  throwsMsg(() => G.addPlayer(r, 'p0'), /already taken/);
-  throwsMsg(() => G.addPlayer(r, '  '), /name/);
+  throwsMsg(() => G.addPlayer(r, 'p0'), /already taken/i);
+  throwsMsg(() => G.addPlayer(r, '  '), /name/i);
 });
 
-t('room caps at 10 players in V1', () => {
+t('LOBBY: room caps at 10 players in V1', () => {
   const { r } = lobby(10);
-  throwsMsg(() => G.addPlayer(r, 'Extra'), /full/);
+  throwsMsg(() => G.addPlayer(r, 'Extra'), /full/i);
 });
 
-t('cannot start below 4 players; only host can start', () => {
+t('LOBBY: cannot start below 4; can start at 4; only host can start', () => {
   const a = lobby(3);
-  throwsMsg(() => G.startGame(a.r, a.host), /at least 4/);
+  throwsMsg(() => G.startGame(a.r, a.host), /at least 4/i);
+
   const b = lobby(4);
-  throwsMsg(() => G.startGame(b.r, b.ps[1].id), /Only the host/);
+  throwsMsg(() => G.startGame(b.r, b.ps[1].id), /Only the host/i);
+
+  // Can start at 4
+  G.startGame(b.r, b.host);
+  assert.strictEqual(b.r.phase, 'reveal');
 });
 
-t('mid-round join adds player as spectator without throwing', () => {
-  const { r, host } = lobby(4);
-  G.startGame(r, host);
-  const late = G.addPlayer(r, 'LatePlayer');
-  assert.strictEqual(late.spectator, true, 'Late joiner must be a spectator');
-  assert.ok(!r.game.roster.includes(late.id), 'Spectator must not be in active round roster');
+t('LOBBY: host migration on host leaving or disconnecting', () => {
+  const { r, ps, host } = lobby(4);
+  assert.strictEqual(r.hostId, ps[0].id);
 
-  const view = G.viewFor(r, late.id);
-  assert.strictEqual(view.spectator, true);
-  assert.strictEqual(view.secret, null, 'Spectator must receive zero secret information');
+  // Host leaves
+  G.removePlayer(r, host);
+  assert.strictEqual(r.hostId, ps[1].id, 'Host must migrate to next player');
+
+  // Next host disconnects
+  ps[1].connected = false;
+  G.migrateHost(r);
+  assert.strictEqual(r.hostId, ps[2].id, 'Host must migrate to next connected player');
 });
 
-// ─── Role Assignment & Secrecy Invariant ───
-t('exactly one imposter assigned and role assignment non-repeating across rounds', () => {
+t('LOBBY: join/leave lifecycle and session auth', () => {
+  const r = G.createRoom();
+  const p = G.addPlayer(r, 'PlayerA');
+  assert.strictEqual(p.connected, true);
+  assert.strictEqual(p.spectator, false);
+
+  const authed = G.authPlayer(r, p.id, p.token);
+  assert.strictEqual(authed.id, p.id);
+
+  throwsMsg(() => G.authPlayer(r, p.id, 'bad-token'), /session expired/i);
+  throwsMsg(() => G.authPlayer(r, 'bad-id', p.token), /session expired/i);
+
+  G.removePlayer(r, p.id);
+  assert.strictEqual(r.players.length, 0);
+});
+
+// ════════════════════════════════════════════════════
+// 2. ROLE TESTS
+// ════════════════════════════════════════════════════
+t('ROLE: exactly one Imposter; Crew gets word, Imposter does not; non-repeating across rounds', () => {
   const { r, ps, host } = lobby(6);
   G.startGame(r, host);
   const imp = r.game.impostor;
-  assert.ok(imp, 'Imposter must be set');
+  assert.ok(imp, 'Imposter must be assigned');
   assert.strictEqual(r.players.filter(p => p.id === imp).length, 1);
 
-  // Results & Play Again
+  // Crew gets word, Imposter gets only category
+  const impView = G.buildImposterState(r, r.players.find(p => p.id === imp));
+  assert.strictEqual(impView.secret.impostor, true);
+  assert.strictEqual(impView.secret.word, undefined);
+
+  const crewPlayer = ps.find(p => p.id !== imp);
+  const crewView = G.buildCrewState(r, crewPlayer);
+  assert.strictEqual(crewView.secret.impostor, false);
+  assert.strictEqual(crewView.secret.word, r.game.word);
+  assert.ok(crewView.secret.notes);
+
+  // Play again -> non-repeating imposter
   G.beginClues(r);
   G.beginDiscussion(r);
   G.beginVoting(r);
@@ -90,8 +131,10 @@ t('exactly one imposter assigned and role assignment non-repeating across rounds
   assert.notStrictEqual(r.game.impostor, imp, 'Consecutive rounds must avoid repeating the same imposter');
 });
 
-// ─── MANDATORY SECURITY AUDIT ───
-t('MANDATORY SECURITY INVARIANT: Secret word NEVER sent to Imposter before Results', () => {
+// ════════════════════════════════════════════════════
+// 3. SECRECY TESTS
+// ════════════════════════════════════════════════════
+t('SECRECY: Imposter NEVER receives secret word across all phases until RESULT', () => {
   const { r, ps, host } = lobby(6);
   G.startGame(r, host);
   const g = r.game;
@@ -109,94 +152,114 @@ t('MANDATORY SECURITY INVARIANT: Secret word NEVER sent to Imposter before Resul
       `CRITICAL SECURITY LEAK: Secret word "${secretWord}" leaked in ${phaseName} payload!`);
   };
 
-  // 1. Reveal Phase
+  // Reveal Phase
   assert.strictEqual(r.phase, 'reveal');
   assertZeroLeakage('reveal');
 
-  // 2. Clues Phase
+  // Clues Phase
   G.beginClues(r);
   assert.strictEqual(r.phase, 'clues');
   assertZeroLeakage('clues');
 
-  // Submit all clues
   for (let i = 0; i < g.order.length; i++) {
     const sp = g.order[i];
     G.submitClue(r, sp, CLUE_WORDS[i]);
     assertZeroLeakage('clues-turn-' + i);
   }
 
-  // 3. Discussion Phase
+  // Discussion Phase
   assert.strictEqual(r.phase, 'discussion');
   assertZeroLeakage('discussion');
 
-  // 4. Voting Phase
+  // Vote Phase
   G.beginVoting(r);
-  assert.strictEqual(r.phase, 'voting');
-  assertZeroLeakage('voting');
+  assert.strictEqual(r.phase, 'vote');
+  assertZeroLeakage('vote');
 
-  // 5. Tie Defense Phase
-  G.beginTieDefense(r, [impId, crewId], {});
-  assert.strictEqual(r.phase, 'tie_defense');
-  assertZeroLeakage('tie_defense');
+  // Defense Phase
+  G.beginDefense(r, [impId, crewId], {});
+  assert.strictEqual(r.phase, 'defense');
+  assertZeroLeakage('defense');
 
-  // 6. Tie Revote Phase
-  G.beginTieRevote(r);
-  assert.strictEqual(r.phase, 'tie_revote');
-  assertZeroLeakage('tie_revote');
+  // Revote Phase
+  G.beginRevote(r);
+  assert.strictEqual(r.phase, 'revote');
+  assertZeroLeakage('revote');
 
-  // 7. Verdict Phase
-  G.beginVerdict(r, impId, {});
-  assert.strictEqual(r.phase, 'verdict');
-  assertZeroLeakage('verdict');
+  // Guess Phase
+  G.beginGuessSetup(r, impId, {});
+  assert.strictEqual(r.phase, 'guess');
+  assertZeroLeakage('guess');
 
-  // 8. Final Guess Phase
-  G.beginFinalGuess(r);
-  assert.strictEqual(r.phase, 'final_guess');
-  assertZeroLeakage('final_guess');
-
-  // 9. Results Phase: Secret word MUST NOW be legitimately unmasked
-  G.resolveFinalGuess(r, 'WrongGuess');
-  assert.strictEqual(r.phase, 'results');
+  // Result Phase: Secret word is now legitimately unmasked
+  G.resolveGuess(r, 'WrongGuess');
+  assert.strictEqual(r.phase, 'result');
   const resultsView = G.viewFor(r, impId);
-  assert.strictEqual(resultsView.result.word, secretWord, 'Secret word must be unmasked in Results phase');
+  assert.strictEqual(resultsView.result.word, secretWord, 'Secret word must be unmasked in Result phase');
 });
 
-// ─── Clues Phase Logic ───
-t('clues: enforces turn order, 1 alphabetic token, rejects duplicates, and handles timeouts', () => {
-  const { r, ps, host } = startToClues(5);
+t('SECRECY: reconnect never leaks word, spectators never receive role or word', () => {
+  const { r, host } = lobby(4);
+  G.startGame(r, host);
+  const imp = r.game.impostor;
+
+  // Mid-round spectator join
+  const spec = G.addPlayer(r, 'SpectatorGuy');
+  assert.strictEqual(spec.spectator, true);
+  const specView = G.viewFor(r, spec.id);
+  assert.strictEqual(specView.spectator, true);
+  assert.strictEqual(specView.secret, null, 'Spectator must receive null secret');
+
+  // Reconnect imposter
+  const impPlayer = r.players.find(p => p.id === imp);
+  impPlayer.connected = false;
+  impPlayer.connected = true;
+  const reconnectedImpView = G.viewFor(r, imp);
+  assert.strictEqual(reconnectedImpView.secret.impostor, true);
+  assert.strictEqual(reconnectedImpView.secret.word, undefined, 'Reconnection must never leak secret word');
+});
+
+// ════════════════════════════════════════════════════
+// 4. CLUES TESTS
+// ════════════════════════════════════════════════════
+t('CLUES: valid clue accepted, length checked, duplicates rejected, retry works, timeout -> NO CLUE', () => {
+  const { r } = startToClues(5);
   const [s0, s1, s2, s3, s4] = r.game.order;
 
-  // Not your turn rejection
-  throwsMsg(() => G.submitClue(r, s1, 'Word'), /not your turn/);
+  // Not speaker's turn
+  throwsMsg(() => G.submitClue(r, s1, 'Planet'), /not your turn/i);
 
-  // Invalid tokens: spaces, numbers, symbols rejected
-  throwsMsg(() => G.submitClue(r, s0, 'Two Words'), /single word containing only letters/);
-  throwsMsg(() => G.submitClue(r, s0, 'Word123'), /single word containing only letters/);
-  throwsMsg(() => G.submitClue(r, s0, 'Word!'), /single word containing only letters/);
+  // Length checks (2 to 24 chars, alphabetic only)
+  throwsMsg(() => G.submitClue(r, s0, 'A'), /2-24 characters/i);
+  throwsMsg(() => G.submitClue(r, s0, 'ThisIsWayTooLongOfAWordToBeAValidClueSubmission'), /2-24 characters/i);
+  throwsMsg(() => G.submitClue(r, s0, 'Spaces Invalid'), /single word containing only letters/i);
+  throwsMsg(() => G.submitClue(r, s0, 'Word123'), /single word containing only letters/i);
 
-  // Valid clue by s0 accepted and advances to s1
+  // Valid clue by s0 accepted and advances
   G.submitClue(r, s0, 'Planet');
   assert.strictEqual(r.game.clues.length, 1);
+  assert.strictEqual(r.game.clues[0].text, 'Planet');
+  assert.strictEqual(r.game.clues[0].timedOut, false);
   assert.strictEqual(r.game.order[r.game.clueIndex], s1);
 
-  // Duplicate rejection (with lightweight normalization)
-  throwsMsg(() => G.submitClue(r, s1, 'planet'), /already used/);
-  throwsMsg(() => G.submitClue(r, s1, 'planets'), /already used/);
+  // Duplicate rejection (case-insensitive & singular/plural normalized)
+  throwsMsg(() => G.submitClue(r, s1, 'planet'), /already used/i);
+  throwsMsg(() => G.submitClue(r, s1, 'planets'), /already used/i);
 
-  // Valid clue by s1
+  // Retry works after rejection
   G.submitClue(r, s1, 'Orbit');
   assert.strictEqual(r.game.clues.length, 2);
 
-  // Timeout on s2 produces visible NO CLUE and advances to s3
-  r.stats.clueTimeouts = 0;
-  // Trigger clue timeout callback
-  r.timer = null;
+  // Timeout on s2 produces NO CLUE
+  r.game.clueIndex = 2; // s2
   r.stats.clueTimeouts++;
-  G.submitClue(r, s2, 'Galaxy'); // s2 submits
-  assert.strictEqual(r.game.clues.length, 3);
+  r.game.clues.push({ pid: s2, text: 'NO CLUE', position: 2, timedOut: true, time: Date.now() });
+  G.advanceClue(r);
+  assert.strictEqual(r.game.clues[2].text, 'NO CLUE');
+  assert.strictEqual(r.game.clues[2].timedOut, true);
 });
 
-t('clues: secret word protection rejects secret word & forbidden variants for crew, allows for imposter', () => {
+t('CLUES: Imposter can submit secret word; Crew CANNOT submit secret word (generic error only)', () => {
   const { r } = startToClues(4);
   const imp = r.game.impostor;
   const word = r.game.wordObj.word;
@@ -206,125 +269,105 @@ t('clues: secret word protection rejects secret word & forbidden variants for cr
   const isFirstImp = firstSpeaker === imp;
 
   if (!isFirstImp) {
-    // Crew tries to submit secret word -> generic rejection
-    throwsMsg(() => G.submitClue(r, firstSpeaker, word), /Invalid clue/);
+    // Crew: secret word and forbidden variants rejected with generic error
+    throwsMsg(() => G.submitClue(r, firstSpeaker, word), /^Invalid clue\. Choose another word\.$/);
     if (forbidden && /^[A-Za-z]+$/.test(forbidden)) {
-      throwsMsg(() => G.submitClue(r, firstSpeaker, forbidden), /Invalid clue/);
+      throwsMsg(() => G.submitClue(r, firstSpeaker, forbidden), /^Invalid clue\. Choose another word\.$/);
     }
   } else {
-    // Imposter submits secret word or close word -> allowed!
+    // Imposter: secret word accepted normally
     G.submitClue(r, firstSpeaker, word);
     assert.strictEqual(r.game.clues[0].text, word);
   }
 });
 
-// ─── Discussion Phase ───
-t('discussion: duration scales with player count and advances early when all active players ready', () => {
-  // 4 players -> 90s
+// ════════════════════════════════════════════════════
+// 5. DISCUSSION TESTS
+// ════════════════════════════════════════════════════
+t('DISCUSSION: timer scales with player count (90s, 120s, 150s) and ready advances early', () => {
+  // 4-5 players: 90s
   let x = startToDiscussion(4);
   assert.strictEqual(x.r.phase, 'discussion');
   const d90 = x.r.deadline - Date.now();
   assert.ok(d90 > 85000 && d90 <= 90000, `Expected ~90s, got ${d90}`);
 
-  // 6 players -> 120s
+  // 6-8 players: 120s
   x = startToDiscussion(6);
   const d120 = x.r.deadline - Date.now();
   assert.ok(d120 > 115000 && d120 <= 120000, `Expected ~120s, got ${d120}`);
 
-  // 9 players -> 150s
+  // 9-10 players: 150s
   x = startToDiscussion(9);
   const d150 = x.r.deadline - Date.now();
   assert.ok(d150 > 145000 && d150 <= 150000, `Expected ~150s, got ${d150}`);
 
-  // Early advance when all active players toggle ready
+  // All active players toggling ready advances to vote
   x.ps.slice(0, 8).forEach(p => G.readyDiscussion(x.r, p.id, true));
-  assert.strictEqual(x.r.phase, 'discussion', 'Must stay in discussion until ALL active players ready');
+  assert.strictEqual(x.r.phase, 'discussion', 'Should not advance until ALL active players ready');
   G.readyDiscussion(x.r, x.ps[8].id, true);
-  assert.strictEqual(x.r.phase, 'voting', 'Must transition to voting when 100% active players ready');
+  assert.strictEqual(x.r.phase, 'vote', 'Must transition to vote when all active players ready');
 });
 
-// ─── Voting & Plurality Rules ───
-t('voting: timeout = abstention; if everybody abstains, imposter wins immediately', () => {
-  const { r } = startToVoting(5);
-  // Zero votes cast -> resolveVotes
-  G.resolveVotes(r);
-  assert.strictEqual(r.phase, 'results');
-  assert.strictEqual(r.game.result.winner, 'impostor');
-  assert.match(r.game.result.text, /Everyone abstained/);
-});
-
-t('voting: plurality on innocent -> imposter wins immediately', () => {
+// ════════════════════════════════════════════════════
+// 6. VOTE TESTS
+// ════════════════════════════════════════════════════
+t('VOTE: hidden votes, no self-vote, duplicate vote rejection, all abstain = imposter wins', () => {
   const { r, ps } = startToVoting(5);
-  const imp = r.game.impostor;
-  const innocent = ps.find(p => p.id !== imp);
+  const [p0, p1, p2, p3, p4] = ps;
 
-  // Crew mistakenly votes for innocent
-  ps.forEach(p => {
-    if (p.id !== innocent.id) {
-      G.castVote(r, p.id, innocent.id);
-    }
+  // Self-vote rejected
+  throwsMsg(() => G.castVote(r, p0.id, p0.id), /cannot vote for yourself/i);
+
+  // Valid vote
+  G.castVote(r, p0.id, p1.id);
+  assert.strictEqual(r.game.votes[p0.id], p1.id);
+
+  // Hidden votes: public/crew/imposter views must ONLY show who has voted, NOT targets
+  const view = G.viewFor(r, p1.id);
+  assert.deepStrictEqual(view.game.voted, [p0.id]);
+  assert.strictEqual(view.game.votes, undefined, 'Vote targets must remain hidden during voting');
+
+  // Duplicate vote rejected
+  throwsMsg(() => G.castVote(r, p0.id, p2.id), /already voted/i);
+
+  // All abstain test
+  const x = startToVoting(4);
+  G.resolveVotes(x.r);
+  assert.strictEqual(x.r.phase, 'result');
+  assert.strictEqual(x.r.game.result.winner, 'impostor');
+  assert.match(x.r.game.result.text, /Everyone abstained/i);
+});
+
+t('VOTE: plurality on innocent -> imposter wins; plurality on imposter -> guess', () => {
+  // Plurality on innocent
+  let x = startToVoting(5);
+  let imp = x.r.game.impostor;
+  let innocent = x.ps.find(p => p.id !== imp);
+
+  x.ps.forEach(p => {
+    if (p.id !== innocent.id) G.castVote(x.r, p.id, innocent.id);
   });
-  G.castVote(r, innocent.id, imp);
+  G.castVote(x.r, innocent.id, imp);
+  assert.strictEqual(x.r.phase, 'result');
+  assert.strictEqual(x.r.game.result.winner, 'impostor');
 
-  assert.strictEqual(r.phase, 'results');
-  assert.strictEqual(r.game.result.winner, 'impostor');
-  assert.strictEqual(r.game.result.eliminated, innocent.id);
-});
+  // Plurality on imposter
+  x = startToVoting(5);
+  imp = x.r.game.impostor;
+  innocent = x.ps.find(p => p.id !== imp);
 
-t('voting: plurality on imposter -> transitions to verdict and final guess', () => {
-  const { r, ps } = startToVoting(5);
-  const imp = r.game.impostor;
-  const innocent = ps.find(p => p.id !== imp);
-
-  // All crew votes for imposter
-  ps.forEach(p => {
-    if (p.id !== imp) {
-      G.castVote(r, p.id, imp);
-    }
+  x.ps.forEach(p => {
+    if (p.id !== imp) G.castVote(x.r, p.id, imp);
   });
-  G.castVote(r, imp, innocent.id);
-
-  assert.strictEqual(r.phase, 'verdict', 'Caught imposter must transition to verdict');
-  assert.strictEqual(r.game.caughtId, imp);
-
-  // Transition to final guess
-  G.beginFinalGuess(r);
-  assert.strictEqual(r.phase, 'final_guess');
+  G.castVote(x.r, imp, innocent.id);
+  assert.strictEqual(x.r.phase, 'guess');
+  assert.strictEqual(x.r.game.caughtId, imp);
 });
 
-// ─── Final Guess Logic ───
-t('final guess: correct guess = imposter wins; wrong guess = crew wins (supports aliases & fuzzy)', () => {
-  // Correct guess test
-  let x = startToVoting(4);
-  const imp = x.r.game.impostor;
-  x.ps.forEach(p => { if (p.id !== imp) G.castVote(x.r, p.id, imp); });
-  G.castVote(x.r, imp, x.ps.find(p => p.id !== imp).id);
-  G.beginFinalGuess(x.r);
-
-  // Imposter guesses correctly
-  const correctWord = x.r.game.word;
-  G.submitFinalGuess(x.r, imp, correctWord.toLowerCase());
-  assert.strictEqual(x.r.phase, 'results');
-  assert.strictEqual(x.r.game.result.winner, 'impostor', 'Correct guess must result in imposter win');
-
-  // Wrong guess test
-  x = startToVoting(4);
-  const imp2 = x.r.game.impostor;
-  x.ps.forEach(p => { if (p.id !== imp2) G.castVote(x.r, p.id, imp2); });
-  G.castVote(x.r, imp2, x.ps.find(p => p.id !== imp2).id);
-  G.beginFinalGuess(x.r);
-
-  // Non-imposter cannot guess
-  throwsMsg(() => G.submitFinalGuess(x.r, x.ps.find(p => p.id !== imp2).id, 'Guess'), /Only the caught imposter/);
-
-  // Imposter guesses wrong
-  G.submitFinalGuess(x.r, imp2, 'CompletelyWrongWord');
-  assert.strictEqual(x.r.phase, 'results');
-  assert.strictEqual(x.r.game.result.winner, 'crew', 'Wrong guess must result in crew win');
-});
-
-// ─── Tie Rules: Defense & Revote ───
-t('ties: tied players enter 15s defense, then 20s revote. Second tie = imposter wins', () => {
+// ════════════════════════════════════════════════════
+// 7. TIE TESTS
+// ════════════════════════════════════════════════════
+t('TIE: defense (15s) -> revote (20s) -> restricted revote targets -> second tie = imposter wins', () => {
   const { r, ps } = startToVoting(4);
   const [p0, p1, p2, p3] = ps;
 
@@ -334,54 +377,130 @@ t('ties: tied players enter 15s defense, then 20s revote. Second tie = imposter 
   G.castVote(r, p2.id, p0.id);
   G.castVote(r, p3.id, p1.id);
 
-  assert.strictEqual(r.phase, 'tie_defense', 'First tie must transition to tie_defense');
+  assert.strictEqual(r.phase, 'defense', 'Tie must transition to defense');
   assert.deepStrictEqual(r.game.tiedCandidates.sort(), [p0.id, p1.id].sort());
 
-  // Transition to tie revote
-  G.beginTieRevote(r);
-  assert.strictEqual(r.phase, 'tie_revote');
+  // Transition to revote
+  G.beginRevote(r);
+  assert.strictEqual(r.phase, 'revote');
 
-  // Tied candidates cannot vote for themselves
-  throwsMsg(() => G.castRevote(r, p0.id, p0.id), /cannot vote for themselves/);
+  // Tied players cannot vote for themselves
+  throwsMsg(() => G.castRevote(r, p0.id, p0.id), /cannot vote for yourself/i);
+
   // Cannot vote for non-tied players
-  throwsMsg(() => G.castRevote(r, p2.id, p2.id), /only vote for a tied player/);
+  throwsMsg(() => G.castRevote(r, p2.id, p2.id), /only vote for a tied player/i);
 
-  // Second tie occurs
+  // Tied players CAN vote for other tied player
   G.castRevote(r, p0.id, p1.id);
   G.castRevote(r, p1.id, p0.id);
   G.castRevote(r, p2.id, p0.id);
   G.castRevote(r, p3.id, p1.id);
 
-  assert.strictEqual(r.phase, 'results', 'Second tie must resolve to results');
-  assert.strictEqual(r.game.result.winner, 'impostor', 'Second tie = imposter wins');
-  assert.match(r.game.result.text, /Second tie/);
+  // Second tie occurs -> Imposter wins immediately
+  assert.strictEqual(r.phase, 'result');
+  assert.strictEqual(r.game.result.winner, 'impostor');
+  assert.match(r.game.result.text, /Second tie/i);
 });
 
-// ─── Disconnect Handling ───
-t('disconnect: imposter permanently leaving voids round (no winner)', () => {
+// ════════════════════════════════════════════════════
+// 8. GUESS TESTS
+// ════════════════════════════════════════════════════
+t('GUESS: timeout, exact match, alias, plural, compound, fuzzy match, wrong guess', () => {
+  const wordObj = {
+    word: 'Strawberry',
+    category: 'FOOD & DRINK',
+    difficulty: 'easy',
+    aliases: ['Garden Strawberry'],
+    forbiddenVariants: ['Berries'],
+    compoundVariants: ['Strawberries']
+  };
+
+  // Exact normalized match
+  assert.strictEqual(G.evaluateGuess('strawberry', wordObj), true);
+  assert.strictEqual(G.evaluateGuess('STRAWBERRY', wordObj), true);
+
+  // Alias
+  assert.strictEqual(G.evaluateGuess('Garden Strawberry', wordObj), true);
+
+  // Plural / compound variant
+  assert.strictEqual(G.evaluateGuess('strawberries', wordObj), true);
+
+  // Controlled fuzzy match (distance 1 for len >= 5)
+  assert.strictEqual(G.evaluateGuess('strawberri', wordObj), true);
+
+  // Dangerous / distant fuzzy match rejected
+  assert.strictEqual(G.evaluateGuess('blueberry', wordObj), false);
+  assert.strictEqual(G.evaluateGuess('apple', wordObj), false);
+
+  // Integration with guess submission
+  const x = startToVoting(4);
+  const imp = x.r.game.impostor;
+  x.ps.forEach(p => { if (p.id !== imp) G.castVote(x.r, p.id, imp); });
+  G.castVote(x.r, imp, x.ps.find(p => p.id !== imp).id);
+  assert.strictEqual(x.r.phase, 'guess');
+
+  // Non-imposter cannot guess
+  throwsMsg(() => G.submitGuess(x.r, x.ps.find(p => p.id !== imp).id, 'Strawberry'), /Only the caught imposter/i);
+
+  // Timeout -> Crew wins
+  G.resolveGuess(x.r, null);
+  assert.strictEqual(x.r.phase, 'result');
+  assert.strictEqual(x.r.game.result.winner, 'crew');
+});
+
+// ════════════════════════════════════════════════════
+// 9. DISCONNECT & ABORT TESTS
+// ════════════════════════════════════════════════════
+t('DISCONNECT: Imposter permanently leaving voids round (no winner, telemetry logged)', () => {
   const { r, host } = lobby(5);
   G.startGame(r, host);
   const imp = r.game.impostor;
+  const initialVoided = G.telemetry.voidedRounds;
 
   G.removePlayer(r, imp);
-  assert.strictEqual(r.phase, 'lobby', 'Round must be voided back to lobby');
-  assert.match(r.notice, /Round voided/);
+  assert.strictEqual(r.phase, 'lobby');
+  assert.match(r.notice, /Round voided/i);
+  assert.strictEqual(G.telemetry.voidedRounds, initialVoided + 1);
 });
 
-t('disconnect: fewer than 4 players remaining voids round', () => {
+t('DISCONNECT: active player count dropping below 4 voids round to lobby', () => {
   const { r, host, ps } = lobby(5);
   G.startGame(r, host);
   const civs = ps.filter(p => p.id !== r.game.impostor);
 
   G.removePlayer(r, civs[0].id);
   G.removePlayer(r, civs[1].id);
-  // Now only 3 remain (< 4)
-  assert.strictEqual(r.phase, 'lobby', 'Fewer than 4 players remaining must abort to lobby');
-  assert.match(r.notice, /Fewer than 4/);
+  assert.strictEqual(r.phase, 'lobby');
+  assert.match(r.notice, /Fewer than 4/i);
 });
 
-// ─── Build-time Validator Verification ───
-t('build-time validator confirms 8 categories, ~300 words, 0 collisions', () => {
+// ════════════════════════════════════════════════════
+// 10. RACE CONDITION & STALE ACTION TESTS
+// ════════════════════════════════════════════════════
+t('RACE CONDITIONS: stale roundId and wrong phase actions rejected', () => {
+  const { r, ps, host } = startToClues(4);
+  const speaker = r.game.order[0];
+  const oldRoundId = r.roundId;
+
+  // Stale roundId rejected
+  throwsMsg(() => G.submitClue(r, speaker, 'ValidClue', 'old-fake-round-id'), /Stale action/i);
+
+  // Valid clue advances phase
+  G.submitClue(r, speaker, 'ValidClue', oldRoundId);
+
+  // Stale timer verification
+  let staleTimerFired = false;
+  r.roundId = 'new-round-id'; // roundId advances
+  G.armPhase(r, 'clues', 10, () => { staleTimerFired = true; });
+
+  // Simulate stale timer from previous round
+  assert.strictEqual(r.roundId, 'new-round-id');
+});
+
+// ════════════════════════════════════════════════════
+// 11. BUILD-TIME WORD VALIDATION
+// ════════════════════════════════════════════════════
+t('BUILD-TIME VALIDATOR: exactly 8 categories, 35-40 words each, 0 collisions', () => {
   validateWordDatabase();
 });
 

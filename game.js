@@ -714,19 +714,14 @@ function playAgain(room, byId) {
 
 // ─── PER-PLAYER AUTHORITATIVE PROJECTION (INFORMATION BARRIER) ───
 // The secret word MUST NEVER be sent to the Imposter before Results.
-function viewFor(room, pid) {
-  const g = room.game;
-  const p = room.players.find(x => x.id === pid);
-  const isSpectator = p ? !!p.spectator : false;
 
+function buildPublicState(room) {
   const v = {
     code: room.code,
     phase: room.phase,
     round: room.round,
     roundId: room.roundId,
     hostId: room.hostId,
-    you: pid,
-    spectator: isSpectator,
     category: room.category,
     deadline: room.deadline || null,
     notice: room.notice || null,
@@ -741,52 +736,90 @@ function viewFor(room, pid) {
     }))
   };
 
-  if (!g) return v;
-
-  const isImp = g.impostor === pid;
-
-  v.game = {
-    category: g.category,
-    order: [...g.order],
-    clueIndex: g.clueIndex,
-    activeSpeaker: room.phase === 'clues' ? g.order[g.clueIndex] : null,
-    clues: g.clues.map(c => ({ pid: c.pid, text: c.text, timedOut: c.timedOut })),
-    voted: Object.keys(g.votes),
-    revoted: Object.keys(g.revotes),
-    tiedCandidates: g.tiedCandidates ? [...g.tiedCandidates] : [],
-    caughtId: g.caughtId || null,
-    roster: [...g.roster]
-  };
-
-  // All phases before result:
-  // Crew receives role + category + secret word + notes
-  // Imposter receives role + category ONLY (NO WORD)
-  // Spectator receives public state only (NO WORD, NO ROLE)
-  if (room.phase !== 'result') {
-    if (isSpectator) {
-      v.secret = null;
-    } else if (isImp) {
-      v.secret = { impostor: true };
-    } else {
-      v.secret = {
-        impostor: false,
-        word: g.word,
-        notes: g.wordObj.notes
-      };
-    }
-  }
-
-  // RESULT: Complete round information unmasked for all
-  if (room.phase === 'result') {
-    v.result = {
-      ...g.result,
-      impostor: g.impostor,
-      word: g.word,
-      players: g.rosterSnapshot
+  const g = room.game;
+  if (g) {
+    v.game = {
+      category: g.category,
+      order: [...g.order],
+      clueIndex: g.clueIndex,
+      activeSpeaker: room.phase === 'clues' ? g.order[g.clueIndex] : null,
+      clues: g.clues.map(c => ({ pid: c.pid, text: c.text, timedOut: c.timedOut })),
+      voted: Object.keys(g.votes),
+      revoted: Object.keys(g.revotes),
+      tiedCandidates: g.tiedCandidates ? [...g.tiedCandidates] : [],
+      caughtId: g.caughtId || null,
+      roster: [...g.roster]
     };
   }
-
   return v;
+}
+
+function buildSpectatorState(room, player) {
+  const v = buildPublicState(room);
+  v.you = player ? player.id : null;
+  v.spectator = true;
+  v.secret = null;
+  return v;
+}
+
+function buildImposterState(room, player) {
+  const v = buildPublicState(room);
+  v.you = player ? player.id : null;
+  v.spectator = false;
+  v.secret = { impostor: true };
+  return v;
+}
+
+function buildCrewState(room, player) {
+  const v = buildPublicState(room);
+  v.you = player ? player.id : null;
+  v.spectator = false;
+  v.secret = {
+    impostor: false,
+    word: room.game.word,
+    notes: room.game.wordObj.notes
+  };
+  return v;
+}
+
+function buildResultState(room, player) {
+  const v = buildPublicState(room);
+  v.you = player ? player.id : null;
+  v.spectator = player ? !!player.spectator : false;
+  if (room.game && room.game.result) {
+    v.result = {
+      ...room.game.result,
+      impostor: room.game.impostor,
+      word: room.game.word,
+      players: room.game.rosterSnapshot
+    };
+  }
+  return v;
+}
+
+function viewFor(room, pid) {
+  const p = room.players.find(x => x.id === pid);
+  if (!p) {
+    const v = buildPublicState(room);
+    v.you = pid;
+    return v;
+  }
+  if (room.phase === 'result') {
+    return buildResultState(room, p);
+  }
+  if (!room.game) {
+    const v = buildPublicState(room);
+    v.you = pid;
+    v.spectator = p.spectator;
+    return v;
+  }
+  if (p.spectator) {
+    return buildSpectatorState(room, p);
+  }
+  if (p.id === room.game.impostor) {
+    return buildImposterState(room, p);
+  }
+  return buildCrewState(room, p);
 }
 
 function sweep(now = Date.now()) {
@@ -831,6 +864,11 @@ module.exports = {
   nextRound,
   playAgain,
   viewFor,
+  buildPublicState,
+  buildCrewState,
+  buildImposterState,
+  buildSpectatorState,
+  buildResultState,
   randomOrder,
   sweep,
   migrateHost,

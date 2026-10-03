@@ -231,8 +231,8 @@ wss.on('connection', ws => {
         // Reject chat from spectators in active game phases (they can only observe)
         if (p.spectator && room.game && room.phase !== 'result') return;
 
-        // Reject messages after certain phase transitions (only allow in discussion, vote, defense, revote, result, lobby)
-        const chatAllowedPhases = ['lobby', 'discussion', 'vote', 'defense', 'revote', 'result'];
+        // Reject messages after certain phase transitions (e.g. invalid or terminated phases)
+        const chatAllowedPhases = ['lobby', 'reveal', 'clues', 'discussion', 'vote', 'defense', 'revote', 'guess', 'result'];
         if (room.game && !chatAllowedPhases.includes(room.phase)) {
           send(ws, { t: 'chat_rejected', msg: 'Chat is not available during this phase.' });
           return;

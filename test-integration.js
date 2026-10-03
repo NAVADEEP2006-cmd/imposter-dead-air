@@ -200,8 +200,8 @@ async function testFullGameLifecycle() {
     await wait(300);
 
     // Voting phase
-    await clients[0].waitForPhase('voting', 5000);
-    assert.strictEqual(clients[0].state.phase, 'voting');
+    await clients[0].waitForPhase('vote', 5000);
+    assert.strictEqual(clients[0].state.phase, 'vote');
 
     // All players vote for another player (imposter plurality test)
     const imposterId = clients.find(c => c.state.secret && c.state.secret.impostor).id;
@@ -215,9 +215,9 @@ async function testFullGameLifecycle() {
     }
     await wait(300);
 
-    // Verdict -> Final guess
-    await clients[0].waitForPhase('final_guess', 10000);
-    assert.strictEqual(clients[0].state.phase, 'final_guess');
+    // Final guess
+    await clients[0].waitForPhase('guess', 10000);
+    assert.strictEqual(clients[0].state.phase, 'guess');
 
     // Imposter submits final guess
     const impClient = clients.find(c => c.id === imposterId);
@@ -225,9 +225,9 @@ async function testFullGameLifecycle() {
     await wait(300);
 
     // Results phase
-    await clients[0].waitForPhase('results', 5000);
-    assert.strictEqual(clients[0].state.phase, 'results');
-    assert.ok(clients[0].state.result.word, 'Secret word must be present in results');
+    await clients[0].waitForPhase('result', 5000);
+    assert.strictEqual(clients[0].state.phase, 'result');
+    assert.ok(clients[0].state.result.word, 'Secret word must be present in result');
     assert.strictEqual(clients[0].state.result.winner, 'crew');
 
     clients.forEach(c => c.close());
