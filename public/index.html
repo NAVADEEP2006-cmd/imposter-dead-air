@@ -739,6 +739,35 @@ label {
   50% { transform: scale(1.02); }
 }
 
+/* ═══ SALVAGE ADD-ON THEME (Dead Air Haul) ═══ */
+.sv-wrap { max-width: 920px; margin: 0 auto; }
+.sv-hero { text-align: center; padding: 6vh 0 18px; }
+.sv-hero h1 { font-size: clamp(34px, 9vw, 58px); letter-spacing: 0.04em; }
+.sv-hero .sub { font: 600 12px/1 var(--mono); letter-spacing: 0.22em; color: #7ee2a8; text-transform: uppercase; margin-top: 6px; }
+.sv-hero .pitch { color: var(--text-dim); margin-top: 10px; font-size: 15px; }
+.sv-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+.sv-mode button { min-height: 64px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); text-align: left; padding: 10px 12px; cursor: pointer; }
+.sv-mode button.on { border-color: #7ee2a8; box-shadow: 0 0 0 1px #7ee2a855; background: linear-gradient(180deg, rgba(126,226,168,0.12), var(--surface2)); }
+.sv-mode b { display: block; font: 700 14px/1.2 var(--display); letter-spacing: 0.06em; }
+.sv-mode span { display: block; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+.sv-top { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; }
+.sv-obj { flex: 1; background: rgba(126,226,168,0.07); border: 1px solid rgba(126,226,168,0.3); border-radius: 12px; padding: 10px 12px; }
+.sv-obj b { font: 700 12px/1 var(--mono); letter-spacing: 0.14em; color: #7ee2a8; }
+.sv-obj .big { font: 700 22px/1.1 var(--display); margin-top: 4px; }
+.sv-timer { min-width: 110px; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+.sv-timer b { font: 700 11px/1 var(--mono); letter-spacing: 0.14em; color: var(--text-dim); }
+.sv-timer .t { font: 700 26px/1 var(--mono); margin-top: 4px; }
+.sv-timer .t.hot { color: var(--danger); animation: timer-flash 0.6s infinite; }
+#sv-map { width: 100%; height: min(62vh, 520px); background: #0a0f0c; border: 1px solid #223026; border-radius: 14px; touch-action: none; display: block; }
+.sv-hud { display: flex; gap: 8px; margin-top: 10px; }
+.sv-carry { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; font: 600 12px/1.4 var(--mono); color: var(--text-dim); min-height: 56px; }
+.sv-carry b { color: #7ee2a8; letter-spacing: 0.1em; }
+.sv-act { display: flex; gap: 8px; margin-top: 10px; }
+.sv-act .btn { min-height: 54px; }
+.sv-feed { margin-top: 10px; max-height: 120px; overflow: hidden; }
+.sv-hook { margin-top: 8px; font: 600 12px/1.4 var(--mono); color: #ffd98a; background: rgba(255,179,0,0.07); border: 1px dashed rgba(255,179,0,0.4); border-radius: 10px; padding: 8px 10px; }
+.sv-debrief { text-align: center; padding: 24px 0; }
+@media (max-width: 640px) { .sv-mode { grid-template-columns: 1fr; } #sv-map { height: 56vh; } }
 /* ═══ BLACKSITE DOSSIER OVERHAUL ═══ */
 h1, h2, h3 { font-family: var(--display); letter-spacing: 0.02em; }
 .phase-label { color: var(--signal); background: rgba(255,179,0,0.08); border-color: rgba(255,179,0,0.25); }
@@ -1204,6 +1233,23 @@ setInterval(() => {
 
 function onState(prev) {
   hideConnBanner();
+  if (S && typeof S.phase === 'string' && S.phase.indexOf('salvage-') === 0) {
+    if (!prev || prev.phase !== S.phase) {
+      if (S.phase === 'salvage-staging') { logFeed('Haul staged. Host opens the window.'); sfx.join(); }
+      else if (S.phase === 'salvage-run') { logFeed('Haul window open. Cells to the depot.'); sfx.turn(); }
+      else if (S.phase === 'salvage-extract') { logFeed('DOCK WINDOW: get bodies and loot out.', 'red'); sfx.alarm(); setAlarm(2); }
+      else if (S.phase === 'salvage-debrief') {
+        const w = S.salvage && S.salvage.result && S.salvage.result.win;
+        logFeed(w ? 'Haul closed. Payout split.' : 'Haul closed in the dark.', w ? 'green' : 'red');
+        setAlarm(0);
+        if (w) sfx.win(); else sfx.lose();
+      }
+    }
+    if (S.notice && (!prev || prev.notice !== S.notice)) toast(S.notice);
+    render();
+    syncPeers();
+    return;
+  }
   // Mission log narrative
   if (!prev || prev.phase !== S.phase) {
     if (S.phase === 'reveal') logFeed('Cover identities issued. Trust no one.');
@@ -1254,9 +1300,11 @@ function intro() {
 }
 
 // ═══ SCREENS ═══
+function isSalvagePhase(ph) { return typeof ph === 'string' && ph.indexOf('salvage-') === 0; }
 function render() {
   try {
     if (!S) return home();
+    if (isSalvagePhase(S.phase)) { app.innerHTML = svScreen(); svBind(); svDraw(); return; }
     const f = {
       lobby,
       reveal,
@@ -1317,6 +1365,12 @@ function home() {
       <input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase;font-family:var(--mono);letter-spacing:0.15em" placeholder="XXXXXX">
       <div class="gap-sm"></div>
       <button class="btn alt" id="jn">Infiltrate site</button>
+    </div>
+    <div class="panel sv-wrap" style="text-align:center">
+      <label>New extraction mode</label>
+      <div class="sv-hero" style="padding:12px 0 4px"><h1 style="font-size:30px">DEAD AIR HAUL</h1><div class="sub">Co-op extraction</div>
+      <p class="pitch" style="font-size:13px">Work together. Take risks. Get out with the haul.</p></div>
+      <p class="dim" style="font-size:12px">Pick SALVAGE in the lobby after creating a room. Same connection, same party, physical 2D haul.</p>
     </div>`;
 
   const cl = $('#cl-session');
@@ -1330,18 +1384,21 @@ function home() {
 
 function lobby() {
   const host = S.hostId === S.you, meP = P(S.you), n = S.players.length;
+  const mode = S.mode || 'classic';
   const empty = Array.from({ length: Math.max(0, 4 - n) }, () => '<div class="slot empty">OPEN</div>').join('');
   const others = S.players.filter(p => p.id !== S.hostId && !p.spectator);
-  const ok = n >= 4 && others.every(p => p.ready);
+  const need = mode === 'salvage' ? 2 : 4;
+  const cap = mode === 'salvage' ? 10 : 10;
+  const ok = n >= need && others.every(p => p.ready);
 
-  let startLabel = 'BEGIN OPERATION';
-  if (n < 4) startLabel = `NEED ${4 - n} MORE`;
+  let startLabel = mode === 'salvage' ? 'START HAUL' : 'BEGIN OPERATION';
+  if (n < need) startLabel = `NEED ${need - n} MORE`;
   else if (!ok) startLabel = 'WAITING FOR READY';
 
   return `
     <div class="hdr">
       <div class="hdr-left">
-        <div class="phase-label">BLACKSITE STAGING</div>
+        <div class="phase-label">${mode === 'salvage' ? 'DEAD AIR HAUL' : 'BLACKSITE STAGING'}</div>
         <h2>ROOM</h2>
       </div>
       <button class="btn alt" id="lv" style="width:auto;flex:0;font-size:13px;min-height:40px;padding:0 14px">Leave</button>
@@ -1350,16 +1407,23 @@ function lobby() {
       <div class="room-code" id="cc">${S.code}</div>
       <button class="btn alt" id="cp" style="font-size:13px;min-height:40px">📋 Copy invite code</button>
     </div>
-    <p class="dim" style="font:500 12px/1 var(--mono);letter-spacing:0.06em;margin:14px 0 8px">${n} / 10 PLAYERS</p>
+    <div class="sv-mode">
+      <button type="button" id="mode-classic" class="${mode === 'classic' ? 'on' : ''}" ${host ? '' : 'disabled'}><b>MOLE HUNT</b><span>Word clues · vote · 4–10</span></button>
+      <button type="button" id="mode-salvage" class="${mode === 'salvage' ? 'on' : ''}" ${host ? '' : 'disabled'}><b>DEAD AIR HAUL</b><span>Co-op loot · rescue · 2–10</span></button>
+    </div>
+    ${mode === 'salvage' ? `<div class="sv-hero" style="padding:6px 0 2px"><div class="sub">Co-op extraction</div><p class="pitch" style="font-size:13px">Work together. Take risks. Get out with the haul.</p></div>` : ''}
+    <p class="dim" style="font:500 12px/1 var(--mono);letter-spacing:0.06em;margin:14px 0 8px">${n} / ${cap} PLAYERS</p>
     <div class="slots">${S.players.map(p => slot(p)).join('')}${empty}</div>
     ${host ? `
+      ${mode === 'classic' ? `
       <div class="panel">
         <label for="cat">Category</label>
         <select id="cat">
           <option value="RANDOM">Random each round</option>
           ${CATS.map(c => `<option ${S.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
         </select>
-      </div>
+      </div>` : `
+      <div class="panel"><p class="dim" style="font-size:13px;margin:0">Haul needs ${need}+ crew. Mission: bank cells at the depot, then reach the dock. Personal loot pays bonus if you extract.</p></div>`}
       <button class="btn ${ok ? '' : 'alt'}" id="go" ${ok ? '' : 'disabled'}>${startLabel}</button>
     ` : `
       <div class="gap-md"></div>
@@ -1684,6 +1748,8 @@ function bind() {
   on('#nx', () => tx({ t: 'next' }));
   on('#ag', () => tx({ t: 'again' }));
   const cat = $('#cat'); if (cat) cat.onchange = () => tx({ t: 'category', v: cat.value });
+  const mc = $('#mode-classic'); if (mc) mc.onclick = () => { sfx.click(); tx({ t: 'mode', v: 'classic' }); };
+  const ms = $('#mode-salvage'); if (ms) ms.onclick = () => { sfx.click(); tx({ t: 'mode', v: 'salvage' }); };
 
   // Clue submission
   const clueSub = $('#clue-sub');
@@ -2085,7 +2151,182 @@ document.querySelectorAll('.chip').forEach(btn => {
   btn.onclick = () => { sfx.click(); sendChat(btn.textContent); };
 });
 
-// ═══ LIFECYCLE ═══
+// ═══ SALVAGE CLIENT (additive) ═══
+const svView = { lastTx: 0, interp: new Map() };
+function svState() { return S && S.salvage ? S.salvage : null; }
+function svHookText(h) {
+  if (h === 'core') return 'PERSONAL — Extract with the UNSTABLE CORE.';
+  if (h === 'rescue') return 'PERSONAL — Patch up a downed crewmate.';
+  return 'PERSONAL — Bank a GLOW RELIC.';
+}
+function svTimeLeft() { if (!S || !S.deadline) return null; return Math.max(0, Math.ceil((S.deadline - Date.now()) / 1000)); }
+function svDist(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
+function svScreen() {
+  const sv = svState();
+  const host = S.hostId === S.you;
+  if (!sv) return '<div class="panel alert"><h3>Haul syncing…</h3></div>';
+  if (sv.phase === 'debrief') return svDebrief(sv, host);
+  const carry = Array.isArray(S.carry) ? S.carry : [];
+  const myPart = sv.parts ? sv.parts.find(p => p.id === S.you) : null;
+  const left = svTimeLeft();
+  const title = sv.phase === 'staging' ? 'STAGING' : sv.phase === 'run' ? 'HAUL ACTIVE' : 'EXTRACTION';
+  return '<div class="sv-wrap"><div class="sv-top"><div class="sv-obj"><b>STATION POWER</b><div class="big">'
+    + (sv.mission || 0) + ' / ' + (sv.need || 2) + ' CELLS</div><div class="dim" style="font:600 11px/1.4 var(--mono)">'
+    + (sv.phase === 'extract' ? 'DOCK WINDOW OPEN — GET OUT' : sv.phase === 'staging' ? 'STAGE — HOST OPENS THE HAUL' : 'BANK CELLS AT THE DEPOT')
+    + '</div></div><div class="sv-timer"><b>' + title + '</b><div class="t" id="sv-clock">' + (left === null ? '--' : left + 's') + '</div></div></div>'
+    + '<canvas id="sv-map" width="1000" height="620"></canvas>'
+    + '<div class="sv-hud"><div class="sv-carry"><b>CARRY</b> — ' + (carry.length ? carry.map(c => esc(c.name)).join(' · ') : 'empty hands') + (myPart ? ' — ' + (myPart.slots || 0) + '/3 slots' : '') + (myPart && myPart.down ? ' — DOWN' : '') + '</div></div>'
+    + (S.hook ? '<div class="sv-hook">' + esc(svHookText(S.hook)) + '</div>' : '')
+    + '<div class="sv-act">' + (sv.phase === 'staging' && host ? '<button class="btn" id="sv-open">OPEN HAUL</button>' : '')
+    + '<button class="btn alt" id="sv-grab">GRAB</button><button class="btn alt" id="sv-bank">BANK</button>'
+    + '<button class="btn alt" id="sv-patch">PATCH</button><button class="btn alt" id="sv-drop">DROP</button></div>'
+    + '<div class="feed sv-feed">' + feedHTML() + '</div>'
+    + '<div class="row" style="margin-top:10px"><button class="btn alt" id="lv2">Leave haul</button></div></div>';
+}
+function svDebrief(sv, host) {
+  const r = sv.result;
+  if (!r) return '<div class="panel"><h3>Haul over</h3></div>';
+  const nm = id => (P(id) && P(id).name) || 'Crew';
+  let rows = '';
+  for (const p of (r.parts || [])) rows += '<p class="dim" style="font-size:13px;margin:4px 0"><b style="color:var(--text)">' + esc(p.name || nm(p.id)) + '</b> — mission ' + p.mission + ' · loot ' + p.loot + ' · rescues ' + p.rescues + (p.out ? ' · OUT' : '') + (p.hookDone ? ' · PERSONAL OK' : '') + '</p>';
+  return '<div class="sv-wrap sv-debrief"><div class="phase-label">' + (r.win ? 'MISSION COMPLETE' : 'MISSION FAILED') + '</div><h1>$' + (r.total || 0) + ' TEAM HAUL</h1>'
+    + '<p class="dim">' + r.mission + '/' + r.need + ' cells · ' + r.out.length + ' extracted</p><div class="panel" style="text-align:left">' + rows
+    + '<p class="dim" style="font-size:12px">MVP: ' + esc(nm(r.mvp)) + ' · Greediest: ' + esc(nm(r.greediest)) + '</p></div>'
+    + (host ? '<button class="btn" id="sv-again">PLAY AGAIN</button><div class="gap-sm"></div><button class="btn alt" id="sv-quit">BACK TO LOBBY</button>' : '<p class="dim">Waiting for host…</p><div class="gap-sm"></div><button class="btn alt" id="sv-quit">Leave</button>') + '</div>';
+}
+function svGrabNearest() {
+  const sv = svState();
+  if (!sv || !sv.parts) return toast('No haul.');
+  const me = sv.parts.filter(p => p.id === S.you)[0];
+  if (!me) return;
+  let best = null, bd = 1e9;
+  for (const it of (sv.items || [])) { const d = svDist(me, it); if (d < bd) { bd = d; best = it; } }
+  if (!best) return toast('Nothing nearby.');
+  if (bd > 110) return toast('Get closer to grab.');
+  tx({ t: 'grab', item: best.id, haulId: S.roundId, roundId: S.roundId });
+}
+function svPatchNearest() {
+  const sv = svState();
+  if (!sv || !sv.parts) return;
+  const me = sv.parts.filter(p => p.id === S.you)[0];
+  if (!me) return;
+  let best = null, bd = 1e9;
+  for (const p of sv.parts) { if (p.id === S.you || !p.down) continue; const d = svDist(me, p); if (d < bd) { bd = d; best = p; } }
+  if (!best) return toast('No downed crew nearby.');
+  if (bd > 120) return toast('Get next to them to patch.');
+  tx({ t: 'patch', target: best.id, haulId: S.roundId, roundId: S.roundId });
+}
+function svBind() {
+  const on = (s, f) => { const e = $(s); if (e) e.onclick = () => { sfx.click(); f(e); }; };
+  on('#lv2', () => { tx({ t: 'leave' }); try { localStorage.removeItem('imp-session'); } catch (e) {} me = null; S = null; render(); });
+  on('#sv-quit', () => tx({ t: 'quit_haul' }));
+  on('#sv-again', () => tx({ t: 'again_haul' }));
+  on('#sv-open', () => tx({ t: 'haul_open' }));
+  on('#sv-grab', svGrabNearest);
+  on('#sv-bank', () => tx({ t: 'bank', haulId: S.roundId, roundId: S.roundId }));
+  on('#sv-patch', svPatchNearest);
+  on('#sv-drop', () => {
+    const c = Array.isArray(S.carry) && S.carry[0] ? S.carry[0].id : null;
+    if (!c) return toast('Empty hands.');
+    tx({ t: 'drop', item: c, haulId: S.roundId, roundId: S.roundId });
+  });
+  const cv = $('#sv-map');
+  if (cv) {
+    let held = false;
+    const wpos = e => {
+      const r = cv.getBoundingClientRect();
+      const cx = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const cy = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      return { x: (cx - r.left) / r.width * 1000, y: (cy - r.top) / r.height * 620 };
+    };
+    const mv = e => {
+      const w = wpos(e);
+      const now = Date.now();
+      if (now - svView.lastTx < 120) return;
+      svView.lastTx = now;
+      tx({ t: 'move', x: Math.round(w.x), y: Math.round(w.y), haulId: S.roundId, roundId: S.roundId });
+    };
+    cv.onpointerdown = e => { held = true; if (cv.setPointerCapture && e.pointerId !== undefined) { try { cv.setPointerCapture(e.pointerId); } catch (x) {} } mv(e); };
+    cv.onpointermove = e => { if (held) mv(e); };
+    cv.onpointerup = () => { held = false; };
+  }
+  window.onkeydown = e => {
+    if (!S || String(S.phase).indexOf('salvage-') !== 0) { window.onkeydown = null; return; }
+    const sv = svState();
+    if (!sv || sv.phase === 'debrief' || !sv.parts) return;
+    const mp = sv.parts.filter(p => p.id === S.you)[0];
+    if (!mp) return;
+    const step = e.shiftKey ? 90 : 55;
+    let dx = 0, dy = 0;
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') dy = -step;
+    else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') dy = step;
+    else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') dx = -step;
+    else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') dx = step;
+    else if (e.key === 'e' || e.key === 'E') { svGrabNearest(); return; }
+    else if (e.key === 'q' || e.key === 'Q') { svPatchNearest(); return; }
+    else return;
+    e.preventDefault();
+    tx({ t: 'move', x: Math.round(mp.x + dx), y: Math.round(mp.y + dy), haulId: S.roundId, roundId: S.roundId });
+  };
+}
+function svDraw() {
+  const cv = $('#sv-map');
+  const sv = svState();
+  if (!cv || !sv) return;
+  const ctx = cv.getContext('2d');
+  const W = 1000, H = 620, now = Date.now();
+  for (const p of (sv.parts || [])) {
+    const k = svView.interp.get(p.id) || { x: p.x, y: p.y };
+    svView.interp.set(p.id, { x: k.x + (p.x - k.x) * 0.3, y: k.y + (p.y - k.y) * 0.3 });
+  }
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0f0c'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(126,226,168,0.08)'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  const depot = sv.depot || { x: 90, y: 300, r: 90 };
+  const dock = sv.dock || { x: 910, y: 90, r: 95 };
+  ctx.lineWidth = 3; ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(126,226,168,0.10)'; ctx.strokeStyle = '#7ee2a8';
+  ctx.beginPath(); ctx.arc(depot.x, depot.y, depot.r, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e9f5ec'; ctx.font = '700 20px monospace'; ctx.fillText('DEPOT', depot.x, depot.y + 7);
+  const pulse = sv.phase === 'extract' ? (0.5 + 0.5 * Math.sin(now / 180)) : 0.2;
+  ctx.fillStyle = 'rgba(255,200,80,' + (0.15 + pulse * 0.25).toFixed(2) + ')'; ctx.strokeStyle = '#ffcf5a';
+  ctx.beginPath(); ctx.arc(dock.x, dock.y, dock.r, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.fillText('DOCK', dock.x, dock.y + 7);
+  for (const h of (sv.hazards || [])) {
+    ctx.fillStyle = h.active ? 'rgba(255,60,70,0.22)' : 'rgba(255,200,80,0.10)';
+    ctx.strokeStyle = h.active ? '#ff3c4a' : '#8a7a3a';
+    ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, 7); ctx.fill(); ctx.stroke();
+  }
+  for (const it of (sv.items || [])) {
+    const col = it.kind === 'cell' ? '#7ee2a8' : it.kind === 'medkit' ? '#7ec8ff' : it.kind === 'core' ? '#ff7a3c' : '#d9a7ff';
+    ctx.fillStyle = col; ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2;
+    if (it.kind === 'core') { ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(now / 600); ctx.fillRect(-11, -11, 22, 22); ctx.restore(); }
+    else if (it.kind === 'cell') { ctx.beginPath(); ctx.arc(it.x, it.y, 11, 0, 7); ctx.fill(); ctx.stroke(); }
+    else if (it.kind === 'medkit') { ctx.fillRect(it.x - 10, it.y - 6, 20, 12); ctx.fillRect(it.x - 4, it.y - 12, 8, 24); }
+    else { ctx.beginPath(); ctx.moveTo(it.x, it.y - 12); ctx.lineTo(it.x + 10, it.y + 8); ctx.lineTo(it.x - 10, it.y + 8); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  }
+  for (const p of (sv.parts || [])) {
+    const ip = svView.interp.get(p.id) || p;
+    const isMe = p.id === S.you;
+    ctx.fillStyle = p.down ? '#5a5a5a' : isMe ? '#7ee2a8' : '#4aa3ff';
+    ctx.strokeStyle = '#04120a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(ip.x, ip.y, isMe ? 17 : 14, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#06130c'; ctx.font = '700 13px monospace';
+    ctx.fillText(String((P(p.id).name || '?')).slice(0, 6).toUpperCase(), ip.x, ip.y + 4);
+    if (p.down) { ctx.fillStyle = '#ff5a5a'; ctx.font = '700 12px monospace'; ctx.fillText('DOWN', ip.x, ip.y - 24); }
+    else if ((p.carry || []).length) { ctx.fillStyle = '#ffd98a'; ctx.font = '700 11px monospace'; ctx.fillText('x' + p.carry.length, ip.x + 22, ip.y - 12); }
+    if (isMe) { ctx.strokeStyle = 'rgba(126,226,168,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ip.x, ip.y, 24, 0, 7); ctx.stroke(); }
+  }
+  const left = svTimeLeft();
+  const clock = $('#sv-clock');
+  if (clock && left !== null) { clock.textContent = left + 's'; clock.classList.toggle('hot', left <= 20); }
+  if ((sv.phase === 'run' || sv.phase === 'extract') && !svDraw.t) {
+    svDraw.t = setInterval(() => { if (!S || String(S.phase).indexOf('salvage-') !== 0) { clearInterval(svDraw.t); svDraw.t = null; return; } svDraw(); }, 400);
+  }
+  if (sv.phase !== 'run' && sv.phase !== 'extract' && svDraw.t) { clearInterval(svDraw.t); svDraw.t = null; }
+}
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     if (ac && ac.state === 'suspended') ac.resume();

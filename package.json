@@ -16,7 +16,9 @@
   "scripts": {
     "start": "node server.js",
     "test": "node test.js",
+    "test:salvage": "node test-salvage.js",
     "test:integration": "node test-integration.js",
+    "test:salvage-integration": "node test-salvage-integration.js",
     "validate:words": "node scripts/validate-words.js"
   },
   "engines": {

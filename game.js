@@ -771,6 +771,7 @@ function buildPublicState(room) {
       roster: [...g.roster]
     };
   }
+  v.mode = room.mode || 'classic';
   return v;
 }
 

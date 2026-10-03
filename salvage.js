@@ -159,10 +159,10 @@ function stepRun(run, now) {
   return moved;
 }
 function pickup(run, pid, itemId) {
-  requireSalvagePhase(run, ['staging', 'run', 'extract']);
+  requireSalvagePhase(run, ['run', 'extract']);
   const part = validateCarrier(run, pid);
   const it = itemById(run, itemId);
-  if (!it) throw new SalvageErr('Nothing there.');
+  if (!it) throw new SalvageErr('No such item.');
   if (it.carriedBy || it.banked || it.broken) throw new SalvageErr('Already taken.');
   if (!near(part, it, INTERACT_R)) throw new SalvageErr('Get closer to grab it.');
   if (slotsUsed(part) + it.slots > MAX_SLOTS + DOWN_PENALTY_SLOTS) throw new SalvageErr('Hands full. Drop something.');
@@ -184,7 +184,7 @@ function dropItem(run, pid, itemId) {
   return it;
 }
 function useKit(run, pid, targetId) {
-  requireSalvagePhase(run, ['staging', 'run', 'extract']);
+  requireSalvagePhase(run, ['run', 'extract']);
   const part = validateCarrier(run, pid);
   const kitIx = part.inv.findIndex(i => i.kind === 'medkit');
   if (kitIx < 0) throw new SalvageErr('No patch kit in your hands.');
@@ -200,7 +200,7 @@ function useKit(run, pid, targetId) {
   return target;
 }
 function deliver(run, pid) {
-  requireSalvagePhase(run, ['staging', 'run', 'extract']);
+  requireSalvagePhase(run, ['run', 'extract']);
   const part = validateCarrier(run, pid);
   if (!near(part, run.world.depot, run.world.depot.r)) throw new SalvageErr('Haul it back to the depot circle.');
   if (!part.inv.length) throw new SalvageErr('Empty hands. Nothing to bank.');
@@ -220,7 +220,7 @@ function deliver(run, pid) {
 }
 function runPhase(room) {
   const run = room.salvage;
-  if (!run) return null;
+  if (!run || room.phase === 'salvage-debrief') return 'debrief';
   if (room.phase === 'salvage-staging') return 'staging';
   if (room.phase === 'salvage-run') return 'run';
   if (room.phase === 'salvage-extract') return 'extract';

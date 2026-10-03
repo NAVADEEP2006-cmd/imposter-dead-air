@@ -31,6 +31,7 @@ t('SALVAGE: staging needs 2+ crew and publishes a 2-cell mission', () => {
 t('SALVAGE: pickup requires range and capacity; deliver banks mission cells', () => {
   const { r } = salvageRoom(3);
   SV.beginRun(r);
+  SV.openHaul(r);
   const run = r.salvage;
   const pid = run.roster[0];
   const cell = run.world.items.find(i => i.kind === 'cell');
@@ -49,6 +50,7 @@ t('SALVAGE: pickup requires range and capacity; deliver banks mission cells', ()
 t('SALVAGE: heavy core slows carrier and cracks when dropped', () => {
   const { r } = salvageRoom(2);
   SV.beginRun(r);
+  SV.openHaul(r);
   const run = r.salvage;
   const pid = run.roster[0];
   const core = run.world.items.find(i => i.kind === 'core');
@@ -64,6 +66,7 @@ t('SALVAGE: heavy core slows carrier and cracks when dropped', () => {
 t('SALVAGE: patch kit revives a downed carrier nearby', () => {
   const { r } = salvageRoom(2);
   SV.beginRun(r);
+  SV.openHaul(r);
   const run = r.salvage;
   const [a, b] = run.roster;
   const kit = run.world.items.find(i => i.kind === 'medkit');
@@ -134,8 +137,8 @@ t('SALVAGE: single roundId shared by room and run; stale actions rejected', () =
 t('SALVAGE: personal hooks are private until debrief', () => {
   const { r, ps } = salvageRoom(3);
   SV.beginRun(r);
-  const run = r.salvage;
   SV.openHaul(r);
+  const run = r.salvage;
   const pub = SV.publicRun(r, run);
   assert.ok(!('personal' in pub), 'public state must not expose run.personal');
   const aView = G.viewFor(r, ps[0].id);
@@ -160,10 +163,10 @@ t('SALVAGE: personal hooks are private until debrief', () => {
 t('SALVAGE: personal credit goes to the banker, not bystanders', () => {
   const { r, ps } = salvageRoom(2);
   SV.beginRun(r);
+  SV.openHaul(r);
   const run = r.salvage;
   run.personal[run.roster[0]] = 'relic';
   run.personal[run.roster[1]] = 'relic';
-  SV.openHaul(r);
   const [a, b] = run.roster;
   const relic = run.world.items.find(i => i.kind === 'relic');
   run.parts[a].x = relic.x; run.parts[a].y = relic.y;
@@ -189,8 +192,8 @@ t('SALVAGE: personal credit goes to the banker, not bystanders', () => {
 t('SALVAGE: downed and disconnect edge cases drop loot safely', () => {
   const { r, ps } = salvageRoom(3);
   SV.beginRun(r);
-  const run = r.salvage;
   SV.openHaul(r);
+  const run = r.salvage;
   const [a, b] = run.roster;
   const cell = run.world.items.find(i => i.kind === 'cell');
   run.parts[a].x = cell.x; run.parts[a].y = cell.y;
