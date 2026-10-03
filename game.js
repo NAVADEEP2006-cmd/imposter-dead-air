@@ -85,6 +85,10 @@ function createRoom() {
       duplicateRejections: 0,
       ties: 0
     },
+    mode: 'classic',
+    salvage: null,
+    salvageTimer: null,
+    salvageTick: null,
     onChange: () => {}
   };
   rooms.set(room.code, room);
@@ -148,6 +152,22 @@ function migrateHost(room) {
 }
 
 function checkAbort(room, leftPlayer) {
+  if (room.salvage && String(room.phase).startsWith('salvage-')) {
+    const SV = require('./salvage.js');
+    const run = room.salvage;
+    if (run.parts[leftPlayer.id]) {
+      SV.dropAll(run, leftPlayer.id);
+      const part = run.parts[leftPlayer.id];
+      if (part) { part.alive = false; part.down = false; }
+    }
+    const active = room.players.filter(p => p.connected && !p.spectator && run.parts[p.id] && run.parts[p.id].alive);
+    if (active.length < 2 && run.phase !== 'debrief') {
+      SV.finishRun(room, 'short-handed');
+      return;
+    }
+    room.onChange();
+    return;
+  }
   const g = room.game;
   if (!g) return;
 
@@ -799,6 +819,20 @@ function buildResultState(room, player) {
 
 function viewFor(room, pid) {
   const p = room.players.find(x => x.id === pid);
+  if (room.salvage && String(room.phase).startsWith('salvage-')) {
+    const SV = require('./salvage.js');
+    const v = buildPublicState(room);
+    v.you = pid;
+    v.mode = 'salvage';
+    v.spectator = p ? !!p.spectator : true;
+    v.salvage = SV.publicRun(room, room.salvage);
+    if (p && room.salvage.parts[pid]) {
+      const part = room.salvage.parts[pid];
+      v.carry = part.inv.map(i => ({ id: i.id, kind: i.kind, name: i.name }));
+      v.hook = room.salvage.personal[pid] || null;
+    }
+    return v;
+  }
   if (!p) {
     const v = buildPublicState(room);
     v.you = pid;
@@ -828,6 +862,8 @@ function sweep(now = Date.now()) {
     expired.forEach(p => removePlayer(room, p.id));
     if (!room.players.length) {
       clearTimer(room);
+      try { clearTimeout(room.salvageTimer); } catch {}
+      try { clearInterval(room.salvageTick); } catch {}
       rooms.delete(code);
     } else if (expired.length) {
       room.onChange();
