@@ -2,6 +2,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const { WebSocketServer } = require('ws');
 const G = require('./game.js');
+const { normalize } = require('./scripts/validate-words.js');
 
 // ─── Configuration ───
 const PORT = process.env.PORT || 3000;
@@ -25,8 +26,8 @@ function iceServers() {
   return servers;
 }
 
-// ─── Static file server ───
-const PUB = fs.existsSync(path.join(__dirname, 'public')) ? path.join(__dirname, 'public') : __dirname;
+// ─── Static file server (Strictly from public/ directory) ───
+const PUB = path.join(__dirname, 'public');
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript',
@@ -53,13 +54,14 @@ const server = http.createServer((req, res) => {
 
   const file = url === '/' ? 'index.html' : path.basename(url);
 
-  // Prevent directory traversal
-  if (file.includes('..') || file.includes('\0')) {
-    res.writeHead(400);
-    return res.end('Bad request');
+  // Security: Prevent directory traversal and backend source file exposure
+  if (file.includes('..') || file.includes('\0') || ['server.js', 'game.js', 'words.js', 'package.json'].includes(file)) {
+    res.writeHead(403);
+    return res.end('Forbidden');
   }
 
-  fs.readFile(path.join(PUB, file), (e, buf) => {
+  const filePath = path.join(PUB, file);
+  fs.readFile(filePath, (e, buf) => {
     if (e) {
       res.writeHead(404);
       return res.end('Not found');
@@ -150,7 +152,6 @@ wss.on('connection', ws => {
     ws.isAlive = true;
   });
 
-  // Handle client socket errors safely without terminating the Node server
   ws.on('error', err => {
     console.warn('WebSocket client socket error:', err.message);
   });
@@ -188,10 +189,16 @@ wss.on('connection', ws => {
         room.category = String(m.v).slice(0, 30);
       } else if (m.t === 'start') {
         G.startGame(room, p.id);
-      } else if (m.t === 'endturn') {
-        G.endTurn(room, p.id);
+      } else if (m.t === 'clue') {
+        G.submitClue(room, p.id, m.word);
+      } else if (m.t === 'ready_discuss') {
+        G.readyDiscussion(room, p.id, m.v);
       } else if (m.t === 'vote') {
         G.castVote(room, p.id, String(m.target));
+      } else if (m.t === 'revote') {
+        G.castRevote(room, p.id, String(m.target));
+      } else if (m.t === 'guess') {
+        G.submitFinalGuess(room, p.id, String(m.word));
       } else if (m.t === 'next') {
         G.nextRound(room, p.id);
       } else if (m.t === 'again') {
@@ -217,6 +224,27 @@ wss.on('connection', ws => {
       } else if (m.t === 'chat') {
         const text = String(m.msg || '').trim().slice(0, 150);
         if (!text) return;
+
+        // CHAT SECURITY:
+        // CREW: Messages containing secret word / forbidden variants are rejected.
+        // Generic rejection shown ONLY to sender. Message must never appear publicly.
+        // IMPOSTER: Messages are NEVER filtered against the secret word.
+        if (room.game && room.phase !== 'results' && p.id !== room.game.impostor && !p.spectator) {
+          const normText = normalize(text);
+          const targetNorm = normalize(room.game.word);
+          const forbiddenNorms = (room.game.wordObj.forbiddenVariants || []).map(normalize);
+          const aliasNorms = (room.game.wordObj.aliases || []).map(normalize);
+
+          const tokens = text.toLowerCase().split(/[^a-z0-9]+/).map(t => normalize(t)).filter(Boolean);
+          const containsForbidden = tokens.some(t => t === targetNorm || forbiddenNorms.includes(t) || aliasNorms.includes(t)) ||
+                                    normText.includes(targetNorm);
+
+          if (containsForbidden) {
+            send(ws, { t: 'chat_rejected', msg: 'Message blocked: transmission contains restricted terms.' });
+            return;
+          }
+        }
+
         const chatData = {
           t: 'chat',
           id: p.id,
@@ -252,19 +280,19 @@ wss.on('connection', ws => {
       G.migrateHost(room);
     }
 
-    if (room.phase === 'discussion' && room.game) {
-      if (room.game.speakerId === p.id) {
-        if (!room.game.completedSpeakers.includes(p.id)) {
-          room.game.completedSpeakers.push(p.id);
-        }
-        G.advanceTurn(room);
+    if (room.phase === 'clues' && room.game) {
+      if (room.game.order[room.game.clueIndex] === p.id) {
+        G.submitClue(room, p.id, 'NO CLUE');
       }
-      G.checkAbort(room);
-    } else if (room.phase === 'voting') {
-      G.maybeResolve(room);
-      G.checkAbort(room);
+      G.checkAbort(room, p);
+    } else if (room.phase === 'discussion' && room.game) {
+      G.checkAbort(room, p);
+    } else if (room.phase === 'voting' && room.game) {
+      G.checkAbort(room, p);
+    } else if (room.phase === 'tie_revote' && room.game) {
+      G.checkAbort(room, p);
     } else if (room.phase === 'reveal') {
-      G.checkAbort(room);
+      G.checkAbort(room, p);
     }
     push(room);
   });

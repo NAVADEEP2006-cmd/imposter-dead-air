@@ -16,7 +16,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node test.js",
-    "test:integration": "node test-integration.js"
+    "test:integration": "node test-integration.js",
+    "validate:words": "node scripts/validate-words.js"
   },
   "engines": {
     "node": ">=18.0.0"

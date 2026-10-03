@@ -276,6 +276,10 @@ function connect(first){
         document.querySelectorAll(`[data-id="${m.id}"]`).forEach(el=>el.classList.toggle('talk',!!m.v));
       }else if(m.t==='chat'){
         addChatMessage(m);
+      }else if(m.t==='chat_rejected'){
+        toast('🚫 ' + (m.msg || 'Message blocked.'));
+      }else if(m.t==='clue_rejected'){
+        toast('⚠️ ' + (m.msg || 'Clue rejected.'));
       }
     };
 
@@ -322,7 +326,7 @@ function intro(){
 function render(){
   try{
     if(!S)return home();
-    const f={lobby,reveal,discussion,voting,results}[S.phase];
+    const f={lobby,reveal,clues,discussion,voting,tie_defense,tie_revote,verdict,final_guess,results}[S.phase];
     if(!f)return home();
     app.innerHTML=f();
     bind();
@@ -334,7 +338,7 @@ function render(){
 
 function home(){
   const reconnectPanel = me ? `<div class="panel" style="text-align:center;border-color:var(--ion)"><p class="sub" style="margin:0 0 8px">Session found for room <b style="color:var(--ion)">${esc(me.code)}</b>…</p><button class="btn alt" id="cl-session" style="min-height:38px;padding:6px 12px;font-size:13px">Cancel & Enter New Room</button></div>` : '';
-  app.innerHTML=`<h1>IMPOSTER</h1><p class="sub">Dead Air. One of you is faking it. Talk, listen, vote.</p>${reconnectPanel}<div class="panel"><label for="nm">Your name</label><input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text"><div style="height:10px"></div><button class="btn" id="mk">Create room</button></div><div class="panel"><label for="cd">Room code</label><input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase"><div style="height:10px"></div><button class="btn alt" id="jn">Join room</button></div>`;
+  app.innerHTML=`<h1>IMPOSTER</h1><p class="sub">Dead Air. One of you is faking it. Clues, discussion, voting.</p>${reconnectPanel}<div class="panel"><label for="nm">Your name</label><input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text"><div style="height:10px"></div><button class="btn" id="mk">Create room</button></div><div class="panel"><label for="cd">Room code</label><input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase"><div style="height:10px"></div><button class="btn alt" id="jn">Join room</button></div>`;
   const cl=$('#cl-session');
   if(cl)cl.onclick=()=>{me=null;try{localStorage.removeItem('imp-session')}catch{}render()};
   const nm=()=>$('#nm').value.trim()||(toast('Enter a name first.'),'');
@@ -347,32 +351,109 @@ function home(){
 function lobby(){
   const host=S.hostId===S.you,meP=P(S.you),n=S.players.length;
   const empty=Array.from({length:Math.max(0,4-n)},()=>'<div class="slot empty">·</div>').join('');
-  const others=S.players.filter(p=>p.id!==S.hostId);const ok=n>=4&&others.every(p=>p.ready);
-  return `<div class="row"><h2>ROOM</h2><button class="btn alt" id="lv" style="width:auto;flex:0;font-size:14px;min-height:40px">Leave</button></div><div class="panel"><div class="code" id="cc">${S.code}</div><button class="btn alt" id="cp">📋 Copy invite code</button></div><p class="sub">${n} / 12 players. Need ${Math.max(0,4-n)} more to start.</p><div class="slots">${S.players.map(p=>slot(p)).join('')}${empty}</div>${host?`<div class="panel"><label for="cat">Category</label><select id="cat"><option value="RANDOM">Random each round</option>${CATS.map(c=>`<option ${S.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div><button class="btn" id="go" ${ok?'':'disabled'}>${n<4?'Need '+(4-n)+' more':ok?'Start game':'Waiting for players to ready up'}</button>`:`<button class="btn" id="rd">${meP.ready?'Not ready':"I'm ready"}</button>`}`;
+  const others=S.players.filter(p=>p.id!==S.hostId&&!p.spectator);const ok=n>=4&&others.every(p=>p.ready);
+  return `<div class="row"><h2>ROOM</h2><button class="btn alt" id="lv" style="width:auto;flex:0;font-size:14px;min-height:40px">Leave</button></div><div class="panel"><div class="code" id="cc">${S.code}</div><button class="btn alt" id="cp">📋 Copy invite code</button></div><p class="sub">${n} / 10 players. Need ${Math.max(0,4-n)} more to start.</p><div class="slots">${S.players.map(p=>slot(p)).join('')}${empty}</div>${host?`<div class="panel"><label for="cat">Category</label><select id="cat"><option value="RANDOM">Random each round</option>${CATS.map(c=>`<option ${S.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div><button class="btn" id="go" ${ok?'':'disabled'}>${n<4?'Need '+(4-n)+' more':ok?'Start game':'Waiting for players to ready up'}</button>`:`<button class="btn" id="rd">${meP.ready?'Not ready':"I'm ready"}</button>`}`;
 }
 
 function reveal(){
-  const imp=S.secret.impostor;
-  return `<div class="card ${imp?'imp':''}"><div><p class="sub">${imp?'':'Your word'}</p>${imp?'<div class="word">YOU ARE THE IMPOSTER</div><p>You don\'t know the word. Blend in.</p>':`<div class="word">${esc(S.secret.word)}</div><p class="sub">Category: ${esc(S.game.category)}</p>`}</div></div><p class="sub" style="text-align:center">Memorize it. Discussion starts shortly.</p>`;
+  const isSpectator=S.spectator;
+  if(isSpectator){
+    return `<div class="panel" style="text-align:center"><h3 style="color:var(--ion)">SPECTATING</h3><p class="sub">You joined mid-round. You will join active play next round.</p></div>`;
+  }
+  const imp=S.secret&&S.secret.impostor;
+  return `<div class="card ${imp?'imp':''}"><div><p class="sub">${imp?'':'Your secret word'}</p>${imp?'<div class="word">YOU ARE THE IMPOSTER</div><p>You don\'t know the secret word. Blend in.</p><p class="sub">Category: '+esc(S.game.category)+'</p>':`<div class="word">${esc(S.secret.word)}</div><p class="sub">Category: ${esc(S.game.category)}</p>`}</div></div><p class="sub" style="text-align:center">10 seconds to memorize. Clues phase starts shortly.</p>`;
+}
+
+function clues(){
+  const isSpectator=S.spectator;
+  const isMyTurn=S.game.activeSpeaker===S.you;
+  const activeSpeakerName=P(S.game.activeSpeaker).name;
+  const clueCount=S.game.clues.length;
+  const totalClues=S.game.order.length;
+
+  let turnActionHtml='';
+  if(isSpectator){
+    turnActionHtml=`<div class="panel" style="text-align:center"><p class="sub">You are spectating this round.</p></div>`;
+  }else if(isMyTurn){
+    turnActionHtml=`<div class="panel" style="border-color:var(--flare);text-align:center"><h3 style="color:var(--flare);margin-bottom:6px">YOUR TURN TO SUBMIT A CLUE</h3><p class="sub" style="font-size:13px;margin-bottom:10px">One single word only. Secret word & duplicates will be rejected.</p><div style="display:flex;gap:8px"><input id="clue-in" maxlength="24" placeholder="Type 1-word clue…" autocomplete="off" enterkeyhint="go" style="flex:1"><button class="btn" id="clue-sub" style="width:auto;min-width:100px;padding:0 14px">Submit</button></div></div>`;
+  }else{
+    turnActionHtml=`<div class="panel" style="text-align:center"><p class="sub">Waiting for <b style="color:var(--ion)">${esc(activeSpeakerName)}</b> to submit a clue…</p></div>`;
+  }
+
+  const cluesListHtml=S.game.clues.length?`<div class="panel"><b>Submitted Clues (${clueCount}/${totalClues})</b><div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${S.game.clues.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--void);padding:6px 10px;border-radius:4px;border:1px solid var(--hull2)"><span>${avatar(P(c.pid).seed)} <b style="vertical-align:middle;margin-left:4px">${esc(P(c.pid).name)}</b></span><span style="font-family:var(--d);color:${c.timedOut?'var(--dim)':'var(--ion)'}">${esc(c.text)}</span></div>`).join('')}</div></div>`:`<div class="panel" style="text-align:center"><p class="sub">No clues submitted yet.</p></div>`;
+
+  let roleSecretHtml='';
+  if(S.secret&&S.secret.impostor){
+    roleSecretHtml=`<p class="sub" style="text-align:center;color:var(--flare)">You are the imposter! Category: <b>${esc(S.game.category)}</b>. Fake a convincing clue.</p>`;
+  }else if(S.secret&&S.secret.word){
+    roleSecretHtml=`<p class="sub" style="text-align:center">Category: <b>${esc(S.game.category)}</b> · Secret word: <b style="color:var(--ion)">${esc(S.secret.word)}</b></p>`;
+  }
+
+  return `<div class="row"><h2>CLUES</h2><div class="timer" id="tm"></div></div>${roleSecretHtml}${turnActionHtml}<div class="panel"><b>Speaking order</b><div class="slots" style="margin-top:8px">${S.game.order.map((id,i)=>slot(P(id),id===S.game.activeSpeaker?'spot':i<S.game.clueIndex?'off':'')).join('')}</div></div>${cluesListHtml}`;
 }
 
 function discussion(){
-  const sp=P(S.game.speaker),mine=S.game.speaker===S.you;
-  const turnIdx=S.game.order.indexOf(S.game.speaker);
-  const turnInfo=`Turn ${turnIdx>=0?turnIdx+1:1} of ${S.game.order.length}`;
-  return `<div class="speaker">${avatar(sp.seed)}<p class="sub">${turnInfo} · Current speaker</p><h2>${esc(sp.name)}${mine?' (you)':''}</h2><p>${mine?'Give a clue about the word, then tap done.':'Listen carefully.'}</p><div class="timer" id="tm"></div></div>${mine?'<button class="btn" id="done">Done talking</button>':''}<div class="panel"><b>Speaking order</b><div class="slots" style="margin-top:8px">${S.game.order.map((id,i)=>slot(P(id),id===S.game.speaker?'spot':i<turnIdx?'off':'')).join('')}</div></div>${S.secret.impostor?'<p class="sub">You are the imposter. Bluff.</p>':`<p class="sub">Your word: <b>${esc(S.secret.word)}</b></p>`}`;
+  const isSpectator=S.spectator;
+  const meP=P(S.you);
+  const readyCount=S.players.filter(p=>S.game.roster.includes(p.id)&&p.discussReady).length;
+  const totalActive=S.players.filter(p=>S.game.roster.includes(p.id)&&p.connected).length;
+
+  let roleSecretHtml='';
+  if(S.secret&&S.secret.impostor){
+    roleSecretHtml=`<p class="sub" style="text-align:center;color:var(--flare)">You are the imposter. Blend in, deflect suspicion, and guess the word.</p>`;
+  }else if(S.secret&&S.secret.word){
+    roleSecretHtml=`<p class="sub" style="text-align:center">Category: <b>${esc(S.game.category)}</b> · Secret word: <b style="color:var(--ion)">${esc(S.secret.word)}</b></p>`;
+  }
+
+  const clueSummary=S.game.clues.length?`<div class="panel"><b>Clue Transmissions</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">${S.game.clues.map(c=>`<div style="background:var(--void);padding:6px 8px;border-radius:4px;border:1px solid var(--hull2);font-size:13px"><b>${esc(P(c.pid).name)}:</b> <span style="font-family:var(--d);color:${c.timedOut?'var(--dim)':'var(--ion)'}">${esc(c.text)}</span></div>`).join('')}</div></div>`:'';
+
+  return `<div class="row"><h2>DISCUSSION</h2><div class="timer" id="tm"></div></div>${roleSecretHtml}<div class="panel" style="text-align:center"><p class="sub">Debate in Comms Link below. Discussion ends when timer expires or all players are ready.</p>${!isSpectator?`<button class="btn ${meP.discussReady?'green':'alt'}" id="rd-disc" style="margin-top:10px">${meP.discussReady?'✓ Ready to Vote':'I am Ready to Vote'}</button>`:''}<p class="sub" style="font-size:12px;margin-top:6px">${readyCount} / ${totalActive} players ready to vote</p></div>${clueSummary}`;
 }
 
 function voting(){
+  const isSpectator=S.spectator;
   const voted=S.game.voted.includes(S.you);
   const remaining=S.game.roster.length-S.game.voted.length;
-  return `<h2>WHO IS THE IMPOSTER?</h2><p class="sub">Vote for the player you think is faking it.</p><div class="timer" id="tm"></div><div class="vote">${S.game.roster.filter(id=>id!==S.you).map(id=>`<button class="slot ${sel===id?'pick':''} ${talking.has(id)?' talk':''}" data-v="${id}" ${voted?'disabled':''}>${avatar(P(id).seed)}<b>${esc(P(id).name)}</b></button>`).join('')}</div><button class="btn" id="cast" style="margin-top:14px" ${voted||!sel?'disabled':''}>${voted?'✓ Vote locked in':'Lock vote'}</button><p class="sub">${voted?`Waiting for ${remaining} more vote${remaining!==1?'s':''}…`:`${S.game.voted.length} / ${S.game.roster.length} voted`}</p>`;
+
+  return `<div class="row"><h2>WHO IS THE IMPOSTER?</h2><div class="timer" id="tm"></div></div><p class="sub">Vote for the player you think is faking it. Abstaining helps the imposter!</p><div class="vote">${S.game.roster.filter(id=>id!==S.you).map(id=>`<button class="slot ${sel===id?'pick':''} ${talking.has(id)?' talk':''}" data-v="${id}" ${voted||isSpectator?'disabled':''}>${avatar(P(id).seed)}<b>${esc(P(id).name)}</b></button>`).join('')}</div>${!isSpectator?`<button class="btn" id="cast" style="margin-top:14px" ${voted||!sel?'disabled':''}>${voted?'✓ Vote locked in':'Lock vote'}</button>`:'<p class="sub" style="text-align:center;margin-top:14px">Spectators cannot vote.</p>'}<p class="sub" style="text-align:center">${voted?`Waiting for ${remaining} more vote${remaining!==1?'s':''}…`:`${S.game.voted.length} / ${S.game.roster.length} voted`}</p>`;
+}
+
+function tie_defense(){
+  const tiedNames=S.game.tiedCandidates.map(id=>P(id).name).join(' vs ');
+  return `<div class="row"><h2>TIE DEFENSE</h2><div class="timer" id="tm"></div></div><div class="panel" style="border-color:var(--flare);text-align:center"><h3 style="color:var(--flare)">VOTE TIED: ${esc(tiedNames)}</h3><p class="sub" style="margin-top:8px">Tied players have 15 seconds to defend themselves in Comms chat! Revote will begin shortly.</p></div><div class="slots" style="margin-top:14px">${S.game.tiedCandidates.map(id=>slot(P(id),'spot')).join('')}</div>`;
+}
+
+function tie_revote(){
+  const isSpectator=S.spectator;
+  const isTied=S.game.tiedCandidates.includes(S.you);
+  const revoted=S.game.revoted.includes(S.you);
+  const eligibleTargets=S.game.tiedCandidates.filter(id=>id!==S.you);
+
+  return `<div class="row"><h2>TIE REVOTE</h2><div class="timer" id="tm"></div></div><p class="sub">${isTied?'You are on defense! Tied players cannot vote for themselves.':'Vote strictly between the tied players.'}</p><div class="vote">${eligibleTargets.map(id=>`<button class="slot ${sel===id?'pick':''}" data-rv="${id}" ${revoted||isSpectator?'disabled':''}>${avatar(P(id).seed)}<b>${esc(P(id).name)}</b></button>`).join('')}</div>${!isSpectator&&!isTied?`<button class="btn" id="cast-revote" style="margin-top:14px" ${revoted||!sel?'disabled':''}>${revoted?'✓ Revote locked in':'Lock revote'}</button>`:''}<p class="sub" style="text-align:center">${revoted?'Revote recorded. Waiting for others…':`${S.game.revoted.length} revotes recorded`}</p>`;
+}
+
+function verdict(){
+  const caughtId=S.game.caughtId;
+  const caughtPlayer=P(caughtId);
+  return `<div class="row"><h2>VERDICT</h2><div class="timer" id="tm"></div></div><div class="panel" style="text-align:center;border-color:var(--flare)"><div style="margin:12px auto">${avatar(caughtPlayer.seed)}</div><h2 style="color:var(--flare)">${esc(caughtPlayer.name)}</h2><p class="sub" style="margin-top:8px">Received the plurality of votes!</p><p style="margin-top:12px;font-family:var(--d);color:var(--ion)">PREPARING FINAL GUESS…</p></div>`;
+}
+
+function final_guess(){
+  const isImposter=S.secret&&S.secret.impostor;
+  return `<div class="row"><h2>FINAL GUESS</h2><div class="timer" id="tm"></div></div>${isImposter?`<div class="panel" style="border-color:var(--flare);text-align:center"><h3 style="color:var(--flare)">YOU WERE CAUGHT!</h3><p class="sub" style="margin:8px 0 14px">Category: <b style="color:var(--ion)">${esc(S.game.category)}</b>. Guess the secret word to steal the victory!</p><div style="display:flex;gap:8px"><input id="guess-in" maxlength="30" placeholder="Type the secret word…" autocomplete="off" enterkeyhint="go" style="flex:1"><button class="btn green" id="guess-sub" style="width:auto;min-width:100px;padding:0 14px">Guess</button></div><p class="sub" style="font-size:12px;margin-top:10px">You have exactly ONE attempt. Plural and compound variants are accepted.</p></div>`:`<div class="panel" style="text-align:center"><h3 style="color:var(--ion)">THE IMPOSTER IS GUESSING</h3><p class="sub" style="margin-top:8px">The imposter has 30 seconds to guess the secret word. If they fail, CREW WINS!</p></div>`}`;
 }
 
 function results(){
-  const r=S.result,won=(r.winner==='impostor')===(r.impostor===S.you);
+  const r=S.result;
   const isHost=S.hostId===S.you;
-  return `<h2>${r.winner==='civilians'?'🎉 CREW WINS':'💀 IMPOSTER WINS'}</h2><p class="${won?'tally':'sub'}">${won?'You won this round!':'Better luck next time.'}</p><p>${esc(r.text)}</p><div class="slots">${S.game.roster.map(id=>`<div class="slot ${id===r.eliminated?'dead':''} ${id===r.impostor?'spot':''}">${avatar(P(id).seed)}<b>${esc(P(id).name)}</b><span class="tally">${r.tally[id]||0} votes</span><span class="tag">${id===r.impostor?'🔴 IMPOSTER':'crew'}${r.votes[id]?' · voted '+esc(P(r.votes[id]).name):''}</span></div>`).join('')}</div><div class="panel">The word was <span class="word">${esc(r.word)}</span></div>${isHost?`<div class="btn-row"><button class="btn green" id="ag">▶ Play again</button><button class="btn alt" id="nx">Back to lobby</button></div>`:'<p class="sub">Waiting for the host to continue…</p>'}`;
+  const won=(r.winner==='impostor')===(r.impostor===S.you);
+
+  let guessInfoHtml='';
+  if(r.finalGuess&&r.finalGuess.attempted){
+    guessInfoHtml=`<div class="panel" style="text-align:center"><p class="sub" style="margin-bottom:4px">Imposter final guess: <b>"${esc(r.finalGuess.word)}"</b></p><b style="color:${r.finalGuess.correct?'var(--flare)':'var(--ion)'}">${r.finalGuess.correct?'✓ GUESS CORRECT':'✗ GUESS WRONG'}</b></div>`;
+  }
+
+  return `<h2>${r.winner==='crew'?'🎉 CREW WINS':'💀 IMPOSTER WINS'}</h2><p class="${won?'tally':'sub'}">${won?'You won this round!':'Better luck next time.'}</p><p>${esc(r.text)}</p>${guessInfoHtml}<div class="slots">${S.game.roster.map(id=>`<div class="slot ${id===r.eliminated?'dead':''} ${id===r.impostor?'spot':''}">${avatar(P(id).seed)}<b>${esc(P(id).name)}</b><span class="tally">${r.tally[id]||0} votes</span><span class="tag">${id===r.impostor?'🔴 IMPOSTER':'crew'}${r.votes[id]?' · voted '+esc(P(r.votes[id]).name):''}</span></div>`).join('')}</div><div class="panel" style="text-align:center">The secret word was <span class="word">${esc(r.word)}</span></div>${isHost?`<div class="btn-row"><button class="btn green" id="ag">▶ Play again</button><button class="btn alt" id="nx">Back to lobby</button></div>`:'<p class="sub">Waiting for the host to continue…</p>'}`;
 }
 
 function bind(){
@@ -386,12 +467,50 @@ function bind(){
   });
   on('#rd',()=>tx({t:'ready',v:!P(S.you).ready}));
   on('#go',()=>tx({t:'start'}));
-  on('#done',()=>tx({t:'endturn'}));
   on('#nx',()=>tx({t:'next'}));
   on('#ag',()=>tx({t:'again'}));
   const cat=$('#cat');if(cat)cat.onchange=()=>tx({t:'category',v:cat.value});
+
+  // Clue submission
+  const clueSub=$('#clue-sub');
+  if(clueSub){
+    clueSub.onclick=()=>{
+      const inp=$('#clue-in');
+      const val=(inp?.value||'').trim();
+      if(!val)return toast('Type a clue first.');
+      tx({t:'clue',word:val});
+    };
+  }
+  const clueIn=$('#clue-in');
+  if(clueIn){
+    clueIn.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#clue-sub')?.click()}};
+  }
+
+  // Discussion ready toggle
+  on('#rd-disc',()=>tx({t:'ready_discuss',v:!P(S.you).discussReady}));
+
+  // Voting
   document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{if(!S.game.voted.includes(S.you)){sel=b.dataset.v;render()}});
   on('#cast',()=>{tx({t:'vote',target:sel});sfx.vote()});
+
+  // Revoting
+  document.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{if(!S.game.revoted.includes(S.you)){sel=b.dataset.rv;render()}});
+  on('#cast-revote',()=>{tx({t:'revote',target:sel});sfx.vote()});
+
+  // Final guess submission
+  const guessSub=$('#guess-sub');
+  if(guessSub){
+    guessSub.onclick=()=>{
+      const inp=$('#guess-in');
+      const val=(inp?.value||'').trim();
+      if(!val)return toast('Type your guess first.');
+      tx({t:'guess',word:val});
+    };
+  }
+  const guessIn=$('#guess-in');
+  if(guessIn){
+    guessIn.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#guess-sub')?.click()}};
+  }
 }
 
 // ---------- timer display ----------
