@@ -1,7 +1,7 @@
 {
   "name": "imposter-dead-air",
   "version": "1.0.0",
-  "description": "Online social-deduction voice party game for 4–12 players",
+  "description": "Online social-deduction party game for 4–10 players (Imposter: Dead Air)",
   "main": "server.js",
   "keywords": [
     "multiplayer",

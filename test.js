@@ -487,14 +487,78 @@ t('RACE CONDITIONS: stale roundId and wrong phase actions rejected', () => {
 
   // Valid clue advances phase
   G.submitClue(r, speaker, 'ValidClue', oldRoundId);
+});
 
-  // Stale timer verification
-  let staleTimerFired = false;
-  r.roundId = 'new-round-id'; // roundId advances
-  G.armPhase(r, 'clues', 10, () => { staleTimerFired = true; });
+t('STALE TIMERS: armPhase suppresses callbacks if roundId, phase, or token changes', () => {
+  const r = G.createRoom();
+  r.roundId = 'round-A';
+  let firedA = false;
+  let firedB = false;
 
-  // Simulate stale timer from previous round
-  assert.strictEqual(r.roundId, 'new-round-id');
+  const origSetTimeout = global.setTimeout;
+  const scheduled = [];
+  global.setTimeout = (fn, ms) => {
+    scheduled.push(fn);
+    return origSetTimeout(fn, 100000);
+  };
+
+  try {
+    // Arm timer for round-A
+    G.armPhase(r, 'clues', 20000, () => { firedA = true; });
+    const timerCallbackA = scheduled[scheduled.length - 1];
+
+    // Advance round and re-arm with different token/phase/roundId
+    r.roundId = 'round-B';
+    G.armPhase(r, 'discussion', 30000, () => { firedB = true; });
+    const timerCallbackB = scheduled[scheduled.length - 1];
+
+    // Execute timer A's callback: must be suppressed because roundId, phase, and token don't match
+    timerCallbackA();
+    assert.strictEqual(firedA, false, 'Stale timer from round-A must never fire');
+
+    // Execute timer B's callback: must fire because room matches current round-B
+    timerCallbackB();
+    assert.strictEqual(firedB, true, 'Current timer for round-B must fire');
+
+    // Clear timer and verify callback doesn't fire after clearTimer
+    G.clearTimer(r);
+    firedB = false;
+    timerCallbackB();
+    assert.strictEqual(firedB, false, 'Timer callback must not fire after clearTimer');
+  } finally {
+    global.setTimeout = origSetTimeout;
+    G.clearTimer(r);
+  }
+});
+
+t('SPECTATORS: Mid-round joined player receives public state only, no secret, and cannot perform actions', () => {
+  const { r, ps, host } = startToClues(4);
+  const spec = G.addPlayer(r, 'SpecPlayer');
+  assert.strictEqual(spec.spectator, true);
+
+  const view = G.viewFor(r, spec.id);
+  assert.strictEqual(view.spectator, true);
+  assert.strictEqual(view.secret, null);
+  assert.strictEqual(view.game.clues !== undefined, true);
+
+  // 1. Clues phase: Spectator cannot submit clues
+  throwsMsg(() => G.submitClue(r, spec.id, 'IllegalClue'), /not your turn/i);
+
+  // 2. Submit all clues to reach discussion phase
+  for (let i = 0; i < r.game.order.length; i++) {
+    G.submitClue(r, r.game.order[i], CLUE_WORDS[i]);
+  }
+  assert.strictEqual(r.phase, 'discussion');
+  // Discussion phase: Spectator cannot ready up
+  throwsMsg(() => G.readyDiscussion(r, spec.id, true), /not active in this round/i);
+
+  // 3. Begin voting phase: Spectator cannot vote
+  G.beginVoting(r);
+  assert.strictEqual(r.phase, 'vote');
+  throwsMsg(() => G.castVote(r, spec.id, ps[0].id), /not in this round/i);
+
+  // 4. Spectator cannot submit final guess
+  throwsMsg(() => G.submitGuess(r, spec.id, 'SecretWord'), /Not the final guess phase/i);
 });
 
 // ════════════════════════════════════════════════════

@@ -1,19 +1,21 @@
 # Imposter: Dead Air
 
-> **An online social-deduction voice party game for 4–12 players.**  
-> Built with authoritative Node.js, WebSockets, and browser-native WebRTC peer-to-peer voice. Zero build step, single dependency (`ws`).
+> **An online social-deduction party game for 4–10 players.**  
+> Built with authoritative Node.js, WebSockets, and text-first gameplay (with optional browser-native WebRTC peer voice). Zero build step, single dependency (`ws`).
 
 ---
 
-## 🎮 How to Play
+## 🎮 How to Play (V1 Rules)
 
-1. **Create or Join a Room:** Enter your nickname and join using a 6-character room code.
-2. **The Secret Word:** All players receive the secret word — **except the Imposter**, who only knows they must bluff.
-3. **Timed Turns:** Players take turns speaking clues about the secret word.
-4. **Vote & Eject:** After all clues are given, players vote for who they believe is the Imposter.
-   - **Majority on Imposter:** Crew wins!
-   - **Wrong majority, tie, or no votes:** Imposter wins!
-5. **Play Again:** The host can immediately trigger a fresh round with new words and scrambled turns.
+1. **Create or Join a Room:** Enter your nickname and join using a 6-character room code (4–10 players).
+2. **The Secret Word:** Crew members receive the secret word and category. The Imposter receives **only the category**.
+3. **Clues Phase:** Each player takes one timed turn (25s max) to submit exactly one single-word clue.
+4. **Discussion Phase:** Timed discussion via text comms (with optional voice). Players can ready up to advance early.
+5. **Vote:** Plurality voting with hidden choices.
+   - If tied: Tied candidates enter a 15s **Defense** phase followed by a 20s **Revote** between tied players. A second tie is an Imposter win.
+   - If all players abstain: Imposter wins.
+6. **Final Guess:** If the Imposter is caught by vote, they enter a 30s **Final Guess** phase. If they guess the secret word (or an accepted alias), the Imposter steals the win; otherwise, Crew wins!
+7. **Play Again:** The host can start a new round or return to lobby.
 
 ---
 
@@ -45,6 +47,9 @@ npm test
 
 # Run multi-client WebSocket integration test suite
 npm run test:integration
+
+# Validate word database (categories, word counts, fuzzy collisions)
+npm run validate:words
 ```
 
 > **Note on Mobile Testing:** WebRTC microphone access requires HTTPS or `localhost`. When testing with mobile phones on the same local network, use a local tunnel:

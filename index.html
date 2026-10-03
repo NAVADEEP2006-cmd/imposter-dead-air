@@ -1,112 +1,753 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#0b0a1a">
-<meta name="description" content="Imposter: Dead Air — Online social-deduction voice party game for 4–12 players. Find the impostor among your crew.">
+<meta name="theme-color" content="#09090f">
+<meta name="description" content="Imposter: Dead Air — A social-deduction game of silence and suspicion. 4–10 players. One imposter. Find them before it's too late.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Imposter: Dead Air</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--void:#0b0a1a;--hull:#1a1833;--hull2:#26234a;--flare:#ff5a36;--ion:#46e0d0;--bone:#f1ead8;--dim:#9a96b8;--d:'Bungee',Impact,sans-serif;--b:'Chakra Petch',system-ui,sans-serif;--safe-b:max(8px,env(safe-area-inset-bottom));--safe-t:max(14px,env(safe-area-inset-top))}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{height:100%;margin:0}
-body{background:var(--void);color:var(--bone);font:500 16px/1.4 var(--b);overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:touch}
-body:before{content:"";position:fixed;inset:0;background:radial-gradient(2px 2px at 20% 30%,#fff8,transparent),radial-gradient(1.5px 1.5px at 70% 60%,#fff6,transparent),radial-gradient(2px 2px at 85% 15%,#46e0d088,transparent),radial-gradient(1.5px 1.5px at 40% 85%,#fff6,transparent);background-size:340px 340px;animation:drift 60s linear infinite;pointer-events:none}
-body:after{content:"";position:fixed;inset:0;background:repeating-linear-gradient(0deg,#0000 0 3px,#0003 3px 4px);pointer-events:none}
-@keyframes drift{to{background-position:340px 680px}}
-#app{position:relative;z-index:1;max-width:560px;margin:auto;padding:var(--safe-t) 14px calc(80px + var(--safe-b));min-height:100%}
-h1,h2,h3{font-family:var(--d);font-weight:400;margin:0;line-height:1}h1{font-size:clamp(36px,12vw,64px);transform:rotate(-2deg)}h2{font-size:clamp(22px,5vw,28px)}
-.sub{color:var(--dim)}button,input,select{font:inherit;color:inherit}
-button{cursor:pointer;border:0;min-height:48px;touch-action:manipulation;appearance:none;-webkit-appearance:none}
-:focus-visible{outline:3px solid var(--ion);outline-offset:2px}
-.btn{background:var(--flare);color:#190905;font:400 clamp(16px,4vw,18px) var(--d);padding:12px 18px;border-radius:6px;box-shadow:0 5px 0 #8f2a14;width:100%;transition:transform .08s;min-height:52px}
-.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #8f2a14}.btn[disabled]{opacity:.45;pointer-events:none}
-.btn.alt{background:var(--hull2);color:var(--bone);box-shadow:0 5px 0 #0007}
-.btn.green{background:#2dcc70;color:#0a2a14;box-shadow:0 5px 0 #1a7a42}
-input,select{width:100%;background:var(--hull);border:2px solid var(--hull2);border-radius:6px;padding:12px;font-size:16px;appearance:none;-webkit-appearance:none}
-.panel{background:var(--hull);border:2px solid var(--hull2);border-radius:6px;padding:14px;margin:12px 0}
-.code{font:clamp(36px,10vw,44px) var(--d);letter-spacing:.14em;color:var(--ion);text-align:center;user-select:all}
-.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px}
-.slot{position:relative;text-align:center;padding:8px 4px;background:var(--void);border:2px solid var(--hull2);border-radius:6px;font-size:14px;animation:pop .3s;overflow:hidden;word-break:break-word}
-.slot.empty{opacity:.3;border-style:dashed;min-height:100px;display:grid;place-items:center}
-.slot.me{border-color:var(--ion)}.slot.off{opacity:.5}
-.tag{display:block;font-size:12px;color:var(--dim)}.tag.ok{color:var(--ion)}
-@keyframes pop{from{transform:scale(.7);opacity:0}}
-.av{width:64px;height:64px;display:block;margin:auto;animation:bob 3s ease-in-out infinite}
-.slot.talk{border-color:var(--ion);box-shadow:0 0 0 3px #46e0d055}.slot.talk .av{animation:talk .35s ease-in-out infinite alternate}
-.slot.spot{border-color:var(--flare);box-shadow:0 0 0 4px #ff5a3655}.slot.pick{border-color:var(--flare);transform:scale(1.04)}
-.slot.dead .av{animation:none;transform:rotate(80deg) scale(.8);filter:grayscale(1)}
-@keyframes bob{50%{transform:translateY(-3px)}}@keyframes talk{to{transform:translateY(-6px) scale(1.06)}}
-.wave{display:inline-flex;gap:2px;height:12px;align-items:flex-end}.wave i{width:3px;background:var(--ion);height:4px}.talk .wave i{animation:w .4s infinite alternate}.wave i:nth-child(2){animation-delay:.1s}.wave i:nth-child(3){animation-delay:.2s}@keyframes w{to{height:12px}}
-.intro{text-align:center;padding:clamp(12vh,20vh,25vh) 0;animation:fade .8s}.intro h1{color:var(--flare)}
-@keyframes fade{from{opacity:0;transform:scale(1.15)}}
-.card{perspective:800px;margin:20px auto;max-width:340px}.card>div{padding:34px 16px;text-align:center;border:3px solid var(--bone);border-radius:6px;background:var(--hull);animation:flip .7s both}
-.card.imp>div{border-color:var(--flare);background:#2a0f12}.word{font:clamp(26px,7vw,34px) var(--d);color:var(--ion);word-break:break-word}.card.imp .word{color:var(--flare)}
-@keyframes flip{from{transform:rotateY(90deg)}}
-.speaker{text-align:center}.speaker .av{width:100px;height:100px}.speaker h2{color:var(--ion)}
-.timer{font:clamp(22px,6vw,28px) var(--d);color:var(--flare)}
-.bar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;gap:8px;align-items:center;padding:8px 14px var(--safe-b);background:#0b0a1aee;border-top:2px solid var(--hull2);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-.bar button{width:auto;min-width:48px;min-height:48px;padding:0 12px;background:var(--hull2);border-radius:6px;font-size:18px}.bar .st{flex:1;font-size:13px;line-height:1.2}.bar .on{background:var(--ion);color:#06201d}
-.toast{position:fixed;top:calc(var(--safe-t) + 4px);left:50%;transform:translateX(-50%);background:var(--bone);color:#190905;padding:10px 16px;border-radius:6px;z-index:99;max-width:90vw;font-weight:700;animation:pop .3s}
-.vote{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.vote button.slot{min-height:110px;color:inherit;cursor:pointer}
-.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}
-.tally{font:clamp(18px,5vw,22px) var(--d);color:var(--flare)}
-.conn-bar{position:fixed;top:0;left:0;right:0;z-index:100;text-align:center;padding:6px;font-size:13px;font-weight:700;background:#e74c3c;color:#fff;animation:pop .3s}
-.btn-row{display:flex;gap:10px;margin-top:14px}.btn-row>.btn{flex:1}
+/* ═══ DESIGN TOKENS ═══ */
+:root {
+  --bg: #09090f;
+  --surface: #111119;
+  --surface2: #1a1a24;
+  --surface3: #22222e;
+  --border: #2a2a38;
+  --border-focus: #3d5afe;
+  --text: #e8e6f0;
+  --text-dim: #7a7890;
+  --text-faint: #4a4860;
 
-/* Comms Drawer & Badges */
-.cbadge{position:absolute;top:-4px;right:-4px;background:var(--flare);color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;font-weight:700;line-height:1;box-shadow:0 0 6px #ff5a36aa;animation:pop .2s}
-.chat-drawer{position:fixed;left:50%;bottom:0;transform:translate(-50%,105%);width:100%;max-width:560px;height:72vh;max-height:560px;background:#100e26f5;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:2px solid var(--ion);border-left:2px solid var(--hull2);border-right:2px solid var(--hull2);border-top-left-radius:14px;border-top-right-radius:14px;z-index:20;display:flex;flex-direction:column;transition:transform .28s cubic-bezier(.16,1,.3,1),opacity .2s;box-shadow:0 -12px 35px #000c;pointer-events:none;opacity:0}
-.chat-drawer.open{transform:translate(-50%,0);pointer-events:auto;opacity:1}
-.chat-hdr{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--hull);border-bottom:1px solid var(--hull2);border-top-left-radius:12px;border-top-right-radius:12px}
-.chat-hdr h3{font-family:var(--d);font-size:16px;margin:0;color:var(--ion);letter-spacing:1px}
-.chat-close{background:transparent;color:var(--dim);font-size:22px;line-height:1;border:0;cursor:pointer;padding:4px 8px;min-height:36px;border-radius:4px}
-.chat-close:hover{color:var(--bone);background:var(--hull2)}
-.chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.chat-empty{text-align:center;color:var(--dim);margin:auto;font-size:14px}
-.cmsg{display:flex;gap:8px;max-width:88%;animation:pop .25s}
-.cmsg.me{align-self:flex-end;flex-direction:row-reverse}
-.cmsg-av{width:32px;height:32px;flex-shrink:0}
-.cmsg-av .av{width:32px;height:32px}
-.cmsg-wrap{display:flex;flex-direction:column}
-.cmsg.me .cmsg-wrap{align-items:flex-end}
-.cmsg-meta{font-size:11px;color:var(--dim);margin-bottom:2px}
-.cmsg.me .cmsg-meta{color:var(--ion)}
-.cmsg-txt{background:var(--hull);border:1px solid var(--hull2);border-radius:10px;padding:8px 12px;font-size:14px;color:var(--bone);word-break:break-word}
-.cmsg.me .cmsg-txt{background:#0e3639;border-color:var(--ion);color:#eafffd}
-.chat-chips{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;background:var(--void);border-top:1px solid var(--hull2);scrollbar-width:none}
-.chat-chips::-webkit-scrollbar{display:none}
-.chip{background:var(--hull2);color:var(--bone);border-radius:16px;padding:5px 12px;font-size:12px;white-space:nowrap;cursor:pointer;min-height:30px;transition:background .1s,transform .08s}
-.chip:hover{background:#383466}
-.chip:active{transform:scale(.95)}
-.chat-bar{display:flex;gap:8px;padding:10px 14px calc(10px + var(--safe-b));background:var(--hull);border-top:1px solid var(--hull2)}
-.chat-bar input{flex:1;min-height:44px;padding:8px 12px;font-size:15px}
-.chat-bar button{width:auto;min-width:72px;min-height:44px;padding:0 16px;font-size:15px}
+  --signal: #3d5afe;
+  --signal-glow: #3d5afe44;
+  --signal-bright: #6979f8;
+  --danger: #ff3d57;
+  --danger-glow: #ff3d5744;
+  --danger-dim: #a82038;
+  --success: #00e676;
+  --success-dim: #00a854;
+  --warn: #ffab00;
 
-@media(prefers-reduced-motion:reduce){*,:before{animation:none!important;transition:none!important}}
-@media(max-width:380px){.slots{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}.av{width:56px;height:56px}.speaker .av{width:80px;height:80px}.vote{grid-template-columns:1fr 1fr;gap:8px}}
+  --mono: 'JetBrains Mono', 'Courier New', monospace;
+  --sans: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+
+  --safe-b: max(8px, env(safe-area-inset-bottom));
+  --safe-t: max(8px, env(safe-area-inset-top));
+  --radius: 8px;
+  --radius-lg: 14px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ═══ RESET ═══ */
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; }
+body {
+  background-color: var(--bg);
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(61,90,254,0.08) 0%, transparent 60%),
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 36px 36px, 36px 36px;
+  color: var(--text);
+  font: 400 16px/1.5 var(--sans);
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ ATMOSPHERE: Scanlines + subtle noise ═══ */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(255,255,255,0.012) 2px,
+    rgba(255,255,255,0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(61,90,254,0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══ LAYOUT ═══ */
+#app {
+  position: relative; z-index: 1;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: calc(var(--safe-t) + 8px) 16px calc(76px + var(--safe-b));
+  min-height: 100%;
+}
+
+/* ═══ TYPOGRAPHY ═══ */
+h1, h2, h3 { font-family: var(--mono); font-weight: 700; margin: 0; line-height: 1.1; letter-spacing: -0.02em; text-transform: uppercase; }
+h1 { font-size: clamp(28px, 8vw, 44px); }
+h2 { font-size: clamp(18px, 4.5vw, 24px); }
+h3 { font-size: clamp(14px, 3.5vw, 17px); }
+
+.phase-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 500 11px/1 var(--mono);
+  color: var(--signal);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 6px 12px;
+  background: rgba(61,90,254,0.08);
+  border: 1px solid rgba(61,90,254,0.15);
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.phase-label::before {
+  content: "";
+  width: 6px; height: 6px;
+  background: var(--signal);
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.dim { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+.danger-text { color: var(--danger); }
+.signal-text { color: var(--signal); }
+.success-text { color: var(--success); }
+.mono { font-family: var(--mono); }
+
+/* ═══ INTERACTIVE ═══ */
+button, input, select { font: inherit; color: inherit; }
+button {
+  cursor: pointer; border: 0;
+  min-height: 48px;
+  touch-action: manipulation;
+  appearance: none; -webkit-appearance: none;
+}
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* Primary button */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%;
+  background: var(--signal);
+  color: #fff;
+  font: 600 15px/1 var(--sans);
+  letter-spacing: 0.02em;
+  padding: 14px 20px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  min-height: 52px;
+  transition: all 0.15s var(--ease-out);
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+.btn:hover { background: var(--signal-bright); transform: translateY(-1px); box-shadow: 0 4px 20px var(--signal-glow); }
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: 0.35; pointer-events: none; filter: grayscale(0.3); }
+
+.btn.alt {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn.alt:hover { background: var(--surface3); border-color: var(--text-faint); }
+
+.btn.danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn.danger:hover { background: #ff5270; box-shadow: 0 4px 20px var(--danger-glow); }
+
+.btn.success {
+  background: var(--success-dim);
+  color: #fff;
+}
+.btn.success:hover { background: var(--success); }
+
+.btn-row { display: flex; gap: 10px; margin-top: 14px; }
+.btn-row > .btn { flex: 1; }
+
+/* ═══ INPUTS ═══ */
+input, select {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 16px;
+  color: var(--text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none; -webkit-appearance: none;
+}
+input:focus, select:focus {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px var(--signal-glow);
+  outline: none;
+}
+input::placeholder { color: var(--text-faint); }
+label {
+  display: block;
+  font: 500 12px/1 var(--mono);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+/* ═══ PANELS ═══ */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin: 12px 0;
+}
+.panel.highlight {
+  border-color: var(--signal);
+  background: linear-gradient(135deg, rgba(61,90,254,0.06) 0%, var(--surface) 100%);
+}
+.panel.alert {
+  border-color: var(--danger);
+  background: linear-gradient(135deg, rgba(255,61,87,0.06) 0%, var(--surface) 100%);
+}
+
+/* ═══ ROOM CODE ═══ */
+.room-code {
+  font: 700 clamp(32px, 9vw, 42px)/1 var(--mono);
+  letter-spacing: 0.2em;
+  color: var(--signal);
+  text-align: center;
+  user-select: all;
+  padding: 8px 0;
+}
+
+/* ═══ PLAYER SLOTS ═══ */
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.slot {
+  position: relative;
+  text-align: center;
+  padding: 10px 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  overflow: hidden;
+  word-break: break-word;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  animation: slot-in 0.3s var(--ease-bounce);
+}
+@keyframes slot-in { from { transform: scale(0.8); opacity: 0; } }
+
+.slot.empty {
+  opacity: 0.25;
+  border-style: dashed;
+  min-height: 100px;
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.slot.me { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal-glow); }
+.slot.off { opacity: 0.45; }
+.slot b { display: block; margin-top: 4px; font-weight: 600; font-size: 13px; }
+.tag {
+  display: block;
+  font: 500 10px/1.2 var(--mono);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 3px;
+}
+.tag.ok { color: var(--success); }
+.host-crown { color: var(--warn); font-size: 11px; }
+
+/* Talking states */
+.slot.talk {
+  border-color: var(--success);
+  box-shadow: 0 0 12px rgba(0,230,118,0.2);
+}
+.slot.talk .av { animation: talk-bounce 0.35s ease-in-out infinite alternate; }
+@keyframes talk-bounce { to { transform: translateY(-4px) scale(1.04); } }
+
+/* Vote spotlight */
+.slot.spot {
+  border-color: var(--danger);
+  box-shadow: 0 0 16px var(--danger-glow);
+}
+.slot.pick {
+  border-color: var(--warn);
+  box-shadow: 0 0 12px rgba(255,171,0,0.25);
+  transform: scale(1.03);
+}
+.slot.dead .av { animation: none; transform: rotate(80deg) scale(0.8); filter: grayscale(1) brightness(0.6); }
+
+/* ═══ AVATARS ═══ */
+.av {
+  width: 56px; height: 56px;
+  display: block;
+  margin: 0 auto;
+  animation: float 4s ease-in-out infinite;
+}
+@keyframes float { 50% { transform: translateY(-2px); } }
+
+/* Wave indicator */
+.wave { display: inline-flex; gap: 2px; height: 10px; align-items: flex-end; }
+.wave i { display: block; width: 2px; background: var(--signal); height: 3px; border-radius: 1px; }
+.talk .wave i { animation: wave-pulse 0.4s infinite alternate; }
+.wave i:nth-child(2) { animation-delay: 0.1s; }
+.wave i:nth-child(3) { animation-delay: 0.2s; }
+@keyframes wave-pulse { to { height: 10px; } }
+
+/* ═══ REVEAL CARD ═══ */
+.reveal-card {
+  perspective: 1000px;
+  margin: 24px auto;
+  max-width: 360px;
+}
+.reveal-card > div {
+  padding: 32px 20px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  animation: card-flip 0.6s var(--ease-out) both;
+  position: relative;
+  overflow: hidden;
+}
+.reveal-card > div::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+.reveal-card.crew > div {
+  border-color: var(--signal);
+  background: linear-gradient(180deg, rgba(61,90,254,0.08) 0%, var(--surface) 100%);
+}
+.reveal-card.imp > div {
+  border-color: var(--danger);
+  background: linear-gradient(180deg, rgba(255,61,87,0.1) 0%, rgba(30,10,12,0.9) 100%);
+}
+.secret-word {
+  font: 700 clamp(24px, 6vw, 32px)/1.2 var(--mono);
+  color: var(--signal);
+  word-break: break-word;
+  margin: 12px 0;
+  letter-spacing: 0.04em;
+}
+.reveal-card.imp .secret-word { color: var(--danger); }
+@keyframes card-flip { from { transform: rotateY(90deg); opacity: 0; } }
+
+/* ═══ TIMER ═══ */
+.timer {
+  font: 700 clamp(20px, 5.5vw, 26px)/1 var(--mono);
+  color: var(--text);
+  transition: color 0.3s;
+}
+.timer.urgent { color: var(--danger); animation: timer-flash 0.5s ease-in-out infinite; }
+@keyframes timer-flash { 50% { opacity: 0.6; } }
+
+/* ═══ VOTE GRID ═══ */
+.vote-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.vote-grid button.slot {
+  min-height: 110px;
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.15s var(--ease-out);
+}
+.vote-grid button.slot:hover:not([disabled]) {
+  border-color: var(--warn);
+  background: var(--surface2);
+}
+
+/* ═══ HEADER ROW ═══ */
+.hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.hdr-left { display: flex; flex-direction: column; gap: 4px; }
+
+/* ═══ TALLY ═══ */
+.tally { font: 700 clamp(16px, 4.5vw, 20px)/1 var(--mono); color: var(--danger); }
+
+/* ═══ HOME SCREEN ═══ */
+.home-hero {
+  text-align: center;
+  padding: clamp(8vh, 12vh, 16vh) 0 24px;
+  animation: hero-in 0.7s var(--ease-out);
+}
+.home-hero h1 {
+  font-size: clamp(32px, 10vw, 52px);
+  background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.home-hero .subtitle {
+  font: 500 clamp(12px, 3vw, 14px)/1.4 var(--mono);
+  color: var(--danger);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.home-hero .tagline {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-top: 12px;
+  max-width: 300px;
+  margin-left: auto; margin-right: auto;
+}
+@keyframes hero-in { from { opacity: 0; transform: translateY(12px); } }
+
+.session-banner {
+  text-align: center;
+  border-color: var(--signal);
+  animation: slot-in 0.3s var(--ease-bounce);
+}
+
+/* ═══ ROUND INTRO ═══ */
+.intro-screen {
+  text-align: center;
+  padding: clamp(18vh, 25vh, 30vh) 0;
+  animation: intro-in 0.6s var(--ease-out);
+}
+.intro-screen h1 {
+  font-size: clamp(36px, 12vw, 56px);
+  color: var(--text);
+  letter-spacing: 0.06em;
+}
+.intro-screen .intro-sub {
+  color: var(--danger);
+  font: 500 14px/1.4 var(--mono);
+  letter-spacing: 0.08em;
+  margin-top: 8px;
+  animation: intro-sub-in 0.6s 0.3s var(--ease-out) both;
+}
+@keyframes intro-in { from { opacity: 0; transform: scale(1.1); } }
+@keyframes intro-sub-in { from { opacity: 0; transform: translateY(8px); } }
+
+/* ═══ SPEAKER ═══ */
+.speaker-block { text-align: center; }
+.speaker-block .av { width: 80px; height: 80px; }
+.speaker-block h3 { color: var(--signal); margin-top: 8px; }
+
+/* ═══ CLUE LIST ═══ */
+.clue-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+.clue-item .clue-author {
+  display: flex; align-items: center; gap: 6px;
+}
+.clue-item .clue-author .av { width: 24px; height: 24px; }
+.clue-word {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--signal);
+}
+.clue-word.timeout { color: var(--text-faint); font-style: italic; }
+
+/* ═══ RESULT SCREEN ═══ */
+.result-banner {
+  text-align: center;
+  padding: 28px 16px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+  animation: result-in 0.5s var(--ease-out);
+}
+.result-banner.crew-win {
+  background: linear-gradient(135deg, rgba(0,230,118,0.08), var(--surface));
+  border: 1px solid rgba(0,230,118,0.3);
+}
+.result-banner.imp-win {
+  background: linear-gradient(135deg, rgba(255,61,87,0.08), var(--surface));
+  border: 1px solid rgba(255,61,87,0.3);
+}
+.result-banner h1 { margin-bottom: 8px; }
+@keyframes result-in { from { opacity: 0; transform: scale(0.95); } }
+
+.result-word {
+  font: 700 clamp(22px, 6vw, 30px)/1.2 var(--mono);
+  color: var(--signal);
+  padding: 16px;
+  text-align: center;
+}
+
+/* ═══ BOTTOM BAR ═══ */
+.bar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 15;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 14px var(--safe-b);
+  background: rgba(9,9,15,0.92);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.bar button {
+  width: auto; min-width: 44px; min-height: 44px;
+  padding: 0 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 18px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bar button:hover { background: var(--surface3); }
+.bar button.on {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: #fff;
+}
+.bar .st {
+  flex: 1;
+  font: 500 12px/1.3 var(--mono);
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+/* ═══ TOAST ═══ */
+.toast {
+  position: fixed;
+  top: calc(var(--safe-t) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  z-index: 200;
+  max-width: 90vw;
+  font: 600 13px/1.3 var(--sans);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  animation: toast-in 0.25s var(--ease-bounce);
+}
+@keyframes toast-in { from { transform: translateX(-50%) translateY(-12px); opacity: 0; } }
+
+/* ═══ CONNECTION BANNER ═══ */
+.conn-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 300;
+  text-align: center;
+  padding: 6px 12px;
+  font: 600 12px/1 var(--mono);
+  background: var(--danger);
+  color: #fff;
+  letter-spacing: 0.04em;
+  animation: toast-in 0.25s var(--ease-bounce);
+}
+
+/* ═══ CHAT DRAWER ═══ */
+.cbadge {
+  position: absolute; top: -4px; right: -4px;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 8px var(--danger-glow);
+  animation: slot-in 0.2s var(--ease-bounce);
+}
+.chat-drawer {
+  position: fixed;
+  left: 50%; bottom: 0;
+  transform: translate(-50%, 105%);
+  width: 100%; max-width: 520px;
+  height: 72vh; max-height: 560px;
+  background: rgba(9,9,15,0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--signal);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+  z-index: 50;
+  display: flex; flex-direction: column;
+  transition: transform 0.3s var(--ease-out), opacity 0.2s;
+  box-shadow: 0 -12px 40px rgba(0,0,0,0.6);
+  pointer-events: none;
+  opacity: 0;
+}
+.chat-drawer.open { transform: translate(-50%, 0); pointer-events: auto; opacity: 1; }
+.chat-hdr {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+}
+.chat-hdr h3 { font-size: 13px; margin: 0; color: var(--signal); letter-spacing: 0.1em; }
+.chat-hdr .live-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: var(--success);
+  border-radius: 50%;
+  margin-left: 8px;
+  animation: pulse-dot 2s ease-in-out infinite;
+  vertical-align: middle;
+}
+.chat-close {
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 20px; line-height: 1;
+  border: 0; cursor: pointer;
+  padding: 4px 8px; min-height: 36px;
+  border-radius: var(--radius);
+  transition: color 0.15s, background 0.15s;
+}
+.chat-close:hover { color: var(--text); background: var(--surface2); }
+.chat-msgs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.chat-empty { text-align: center; color: var(--text-faint); margin: auto; font-size: 13px; font-family: var(--mono); }
+.cmsg { display: flex; gap: 8px; max-width: 88%; animation: slot-in 0.2s var(--ease-out); }
+.cmsg.me { align-self: flex-end; flex-direction: row-reverse; }
+.cmsg-av { width: 28px; height: 28px; flex-shrink: 0; }
+.cmsg-av .av { width: 28px; height: 28px; }
+.cmsg-wrap { display: flex; flex-direction: column; }
+.cmsg.me .cmsg-wrap { align-items: flex-end; }
+.cmsg-meta { font: 500 10px/1 var(--mono); color: var(--text-faint); margin-bottom: 3px; letter-spacing: 0.04em; }
+.cmsg.me .cmsg-meta { color: var(--signal); }
+.cmsg-txt {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text);
+  word-break: break-word;
+}
+.cmsg.me .cmsg-txt {
+  background: rgba(61,90,254,0.12);
+  border-color: rgba(61,90,254,0.3);
+}
+.chat-chips {
+  display: flex; gap: 6px;
+  overflow-x: auto;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  scrollbar-width: none;
+}
+.chat-chips::-webkit-scrollbar { display: none; }
+.chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 30px;
+  transition: all 0.12s var(--ease-out);
+}
+.chip:hover { background: var(--surface3); color: var(--text); border-color: var(--text-faint); }
+.chip:active { transform: scale(0.95); }
+.chat-bar {
+  display: flex; gap: 8px;
+  padding: 10px 14px calc(10px + var(--safe-b));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.chat-bar input { flex: 1; min-height: 44px; padding: 8px 12px; font-size: 15px; }
+.chat-bar button { width: auto; min-width: 72px; min-height: 44px; padding: 0 16px; font-size: 14px; }
+
+/* ═══ RESPONSIVE ═══ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: 0s !important; }
+}
+@media (max-width: 380px) {
+  .slots { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .av { width: 48px; height: 48px; }
+  .speaker-block .av { width: 64px; height: 64px; }
+  .vote-grid { gap: 8px; }
+}
+
+/* ═══ UTILITY ═══ */
+.gap-sm { height: 8px; }
+.gap-md { height: 14px; }
+.gap-lg { height: 20px; }
+.text-center { text-align: center; }
+.row { display: flex; gap: 10px; align-items: center; }
+.row > * { flex: 1; }
+
+/* Verdict emphasis */
+.verdict-reveal {
+  animation: verdict-in 0.6s var(--ease-out);
+}
+@keyframes verdict-in {
+  from { opacity: 0; transform: scale(0.9); }
+  50% { transform: scale(1.02); }
+}
 </style></head><body>
 <main id="app" aria-live="polite"></main>
 
 <!-- In-game Comms Drawer -->
 <div id="chat-panel" class="chat-drawer" role="region" aria-label="Crew Comms" aria-hidden="true">
   <div class="chat-hdr">
-    <div><h3>COMMS LINK</h3><span class="tag ok" style="display:inline;margin-left:4px">LIVE</span></div>
+    <div><h3>COMMS</h3><span class="live-dot"></span></div>
     <button id="chat-close" class="chat-close" aria-label="Close chat">✕</button>
   </div>
-  <div id="chat-msgs" class="chat-msgs"><div class="chat-empty">No transmissions yet. Chat or tap a quick phrase below.</div></div>
+  <div id="chat-msgs" class="chat-msgs"><div class="chat-empty">No transmissions yet.</div></div>
   <div class="chat-chips">
-    <button type="button" class="chip">👀 Sus!</button>
-    <button type="button" class="chip">I'm innocent!</button>
+    <button type="button" class="chip">👀 Sus</button>
+    <button type="button" class="chip">Not me</button>
     <button type="button" class="chip">Who is it?</button>
     <button type="button" class="chip">Skip vote</button>
     <button type="button" class="chip">Trust me</button>
-    <button type="button" class="chip">GG!</button>
+    <button type="button" class="chip">GG</button>
   </div>
   <form id="chat-form" class="chat-bar">
-    <input id="chat-in" maxlength="150" placeholder="Type transmission…" autocomplete="off" enterkeyhint="send">
-    <button type="submit" class="btn">Send</button>
+    <input id="chat-in" maxlength="150" placeholder="Type message…" autocomplete="off" enterkeyhint="send">
+    <button type="submit" class="btn" style="width:auto;min-width:72px">Send</button>
   </form>
 </div>
 
@@ -129,22 +770,22 @@ window.APP_CONFIG = {
 </script>
 <script>
 'use strict';
-// Startup error boundary to prevent any silent blank screen
+// Startup error boundary
 window.addEventListener('error', function(e) {
   const appEl = document.getElementById('app');
   if (appEl && (!appEl.children.length || appEl.innerHTML.trim() === '')) {
     const msg = e && e.message ? e.message : 'Unknown startup error';
-    appEl.innerHTML = `<div class="panel" style="border-color:var(--flare);text-align:center;padding:24px 16px;margin-top:15vh">
-      <h2 style="color:var(--flare);margin-bottom:8px">INITIALIZATION ERROR</h2>
-      <p class="sub" style="margin-bottom:14px">Game failed to initialize. Check server configuration.</p>
-      <pre style="font-size:12px;background:var(--void);padding:8px;border-radius:4px;overflow-x:auto;color:var(--dim);text-align:left">${esc(msg)}</pre>
-      <div style="height:14px"></div>
-      <button class="btn alt" onclick="location.reload()">Reload Application</button>
+    appEl.innerHTML = `<div class="panel alert" style="text-align:center;padding:24px 16px;margin-top:15vh">
+      <h2 style="color:var(--danger);margin-bottom:8px">INITIALIZATION ERROR</h2>
+      <p class="dim" style="margin-bottom:14px">System failed to initialize.</p>
+      <pre style="font-size:11px;background:var(--bg);padding:8px;border-radius:4px;overflow-x:auto;color:var(--text-faint);text-align:left;font-family:var(--mono)">${esc(msg)}</pre>
+      <div class="gap-md"></div>
+      <button class="btn alt" onclick="location.reload()">Reload</button>
     </div>`;
   }
 });
 
-// Authoritative runtime configuration with robust built-in fallbacks
+// ═══ CONFIG ═══
 const APP_CONFIG = window.APP_CONFIG || {};
 const CATS = (Array.isArray(APP_CONFIG.categories) && APP_CONFIG.categories.length)
   ? APP_CONFIG.categories
@@ -162,40 +803,131 @@ try{me=JSON.parse(localStorage.getItem('imp-session')||'null')}catch{}
 try{soundOn=localStorage.getItem('imp-snd')!=='0'}catch{}
 const talking=new Set();
 
-// ---------- sound (generated, no assets) ----------
+// ═══ PROCEDURAL AUDIO ENGINE ═══
 let ac;
 function unlockAudio(){
-  if(ac&&ac.state==='suspended')ac.resume();
+  if(ac&&ac.state==='suspended')ac.resume().catch(()=>{});
   document.querySelectorAll('audio').forEach(a=>{if(a.paused&&a.srcObject)a.play().catch(()=>{})});
 }
 ['click','touchstart','keydown'].forEach(ev=>window.addEventListener(ev,unlockAudio,{passive:true}));
 
-function beep(f,d=.12,t='square',v=.05){
-  if(!soundOn)return;
-  try{
-    ac=ac||new (window.AudioContext||window.webkitAudioContext)();
-    const o=ac.createOscillator(),g=ac.createGain();
-    o.type=t;o.frequency.value=f;
-    g.gain.setValueAtTime(v,ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);
-    o.connect(g).connect(ac.destination);
-    o.start();o.stop(ac.currentTime+d);
-  }catch{}
+function getAudioCtx() {
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state === 'suspended') ac.resume().catch(() => {});
+  return ac;
 }
-const sfx={
-  click:()=>beep(520,.06),
-  join:()=>{beep(440);setTimeout(()=>beep(660),90)},
-  turn:()=>{beep(700,.1);setTimeout(()=>beep(900,.15),110)},
-  vote:()=>beep(300,.15,'sawtooth'),
-  reveal:()=>{beep(120,.4,'sawtooth',.08)},
-  win:()=>[523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle'),i*120)),
-  chat:()=>{beep(587,.07,'sine',.06);setTimeout(()=>beep(880,.09,'sine',.06),70)}
+
+function beep(f, d = 0.12, t = 'square', v = 0.04) {
+  if (!soundOn) return;
+  try {
+    const ctx = getAudioCtx();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = t;
+    o.frequency.setValueAtTime(f, ctx.currentTime);
+    g.gain.setValueAtTime(v, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + d);
+    o.connect(g).connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + d);
+  } catch {}
+}
+
+function radioNoise(duration = 0.08, volume = 0.025, bandFreq = 1800) {
+  if (!soundOn) return;
+  try {
+    const ctx = getAudioCtx();
+    const bufferSize = Math.max(128, Math.floor(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(bandFreq, ctx.currentTime);
+    filter.Q.setValueAtTime(2.2, ctx.currentTime);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start();
+  } catch {}
+}
+
+// Named sound events
+const sfx = {
+  click: () => {
+    beep(600, 0.04, 'sine', 0.03);
+    radioNoise(0.02, 0.015, 2400);
+  },
+  join: () => {
+    radioNoise(0.05, 0.02, 2000);
+    beep(440, 0.06, 'sine', 0.04);
+    setTimeout(() => beep(660, 0.08, 'sine', 0.04), 80);
+  },
+  turn: () => {
+    radioNoise(0.06, 0.03, 1600);
+    setTimeout(() => {
+      beep(700, 0.08, 'triangle', 0.04);
+      setTimeout(() => beep(900, 0.12, 'triangle', 0.04), 100);
+    }, 40);
+  },
+  vote: () => {
+    radioNoise(0.08, 0.035, 1200);
+    beep(240, 0.16, 'sawtooth', 0.04);
+  },
+  reveal: () => {
+    radioNoise(0.25, 0.04, 1000);
+    beep(80, 0.5, 'sawtooth', 0.06);
+    setTimeout(() => beep(120, 0.3, 'sawtooth', 0.04), 200);
+  },
+  win: () => {
+    [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.18, 'triangle', 0.04), i * 100));
+    setTimeout(() => radioNoise(0.12, 0.02, 3000), 450);
+  },
+  lose: () => {
+    radioNoise(0.2, 0.04, 800);
+    [400, 340, 260].forEach((f, i) => setTimeout(() => beep(f, 0.2, 'sawtooth', 0.04), i * 150));
+  },
+  chat: () => {
+    radioNoise(0.03, 0.02, 2400);
+    beep(587, 0.05, 'sine', 0.04);
+    setTimeout(() => beep(880, 0.07, 'sine', 0.04), 60);
+  },
+  tension: () => {
+    radioNoise(0.08, 0.02, 900);
+    beep(150, 0.4, 'sawtooth', 0.03);
+    setTimeout(() => beep(160, 0.3, 'sawtooth', 0.02), 300);
+  },
+  verdict: () => {
+    radioNoise(0.3, 0.05, 700);
+    beep(200, 0.6, 'sawtooth', 0.05);
+    setTimeout(() => beep(100, 0.8, 'sawtooth', 0.04), 400);
+  }
 };
-$('#snd').onclick=()=>{soundOn=!soundOn;try{localStorage.setItem('imp-snd',soundOn?'1':'0')}catch{}$('#snd').textContent=soundOn?'🔊':'🔇';sfx.click()};$('#snd').textContent=soundOn?'🔊':'🔇';
 
-function toast(t){document.querySelectorAll('.toast').forEach(e=>e.remove());const e=document.createElement('div');e.className='toast';e.setAttribute('role','alert');e.textContent=t;document.body.append(e);setTimeout(()=>e.remove(),3200)}
+$('#snd').onclick=()=>{
+  soundOn=!soundOn;
+  try{localStorage.setItem('imp-snd',soundOn?'1':'0')}catch{}
+  $('#snd').textContent=soundOn?'🔊':'🔇';
+  sfx.click();
+};
+$('#snd').textContent=soundOn?'🔊':'🔇';
 
-// ---------- connection status banner ----------
+function toast(t){
+  document.querySelectorAll('.toast').forEach(e=>e.remove());
+  const e=document.createElement('div');
+  e.className='toast';e.setAttribute('role','alert');
+  e.textContent=t;document.body.append(e);
+  setTimeout(()=>e.remove(),3200);
+}
+
+// ═══ CONNECTION BANNER ═══
 let connBanner=null;
 function showConnBanner(msg){
   if(!connBanner){connBanner=document.createElement('div');connBanner.className='conn-bar';document.body.append(connBanner)}
@@ -203,130 +935,213 @@ function showConnBanner(msg){
 }
 function hideConnBanner(){if(connBanner)connBanner.style.display='none'}
 
-// ---------- avatars (original SVG, generated from player seed) ----------
-const BODY=['#ff5a36','#46e0d0','#f7c948','#9b7cff','#6fd06f','#ff8fb7','#5ea6ff','#e8e1c9'];
-function avatar(seed){const c=BODY[seed%8],v=(seed>>3)%3,a=(seed>>5)%4,e=['#fff','#ffe66b','#9ff'][(seed>>7)%3];
-return `<svg class="av" viewBox="0 0 80 80" aria-hidden="true"><ellipse cx="40" cy="74" rx="22" ry="4" fill="#0006"/><rect x="18" y="26" width="44" height="46" rx="22" fill="${c}"/><rect x="10" y="44" width="10" height="20" rx="5" fill="${c}"/><rect x="${v?24:20}" y="34" width="${v===2?36:32}" height="${v===1?10:16}" rx="8" fill="#0b0a1a"/><circle cx="${v?34:32}" cy="40" r="3" fill="${e}"/><circle cx="${v===2?48:44}" cy="40" r="3" fill="${e}"/>${a===0?`<line x1="40" y1="26" x2="40" y2="12" stroke="${c}" stroke-width="3"/><circle cx="40" cy="11" r="4" fill="#fff"/>`:a===1?`<path d="M20 30 L12 14 L30 24Z M60 30 L68 14 L50 24Z" fill="${c}"/>`:a===2?`<rect x="30" y="52" width="20" height="10" rx="3" fill="#0b0a1a" opacity=".5"/>`:``}</svg>`}
-const wave='<span class="wave" aria-hidden="true"><i></i><i></i><i></i></span>';
+// ═══ AVATARS (Original Tactical Radio Operator Insignia) ═══
+const PALETTE = ['#3d5afe','#ff3d57','#00e676','#ffab00','#e040fb','#00bcd4','#ff6e40','#7c4dff'];
+function avatar(seed) {
+  const c = PALETTE[seed % 8];
+  const e = ['#80ffea', '#ffe066', '#ffffff', '#ff80bf'][(seed >> 3) % 4];
+  const pattern = (seed >> 5) % 4;
+  const ringDash = ['none', '4 2', '8 3', '2 2'][(seed >> 7) % 4];
 
-// Roster resolver — never displays generic "Someone" for historical players
-const P=id=>{
-  if(S?.result?.players){
-    const rp=S.result.players.find(p=>p.id===id);
-    if(rp)return{...rp,connected:S.players.some(p=>p.id===id&&p.connected),ready:true};
+  const h1 = 6 + (seed & 7) * 1.8;
+  const h2 = 8 + ((seed >> 2) & 7) * 2.2;
+  const h3 = 12 + ((seed >> 4) & 7) * 2.5;
+  const h4 = 7 + ((seed >> 6) & 7) * 2.0;
+  const h5 = 5 + ((seed >> 8) & 7) * 1.5;
+
+  let centerGraphic = '';
+  if (pattern === 0) {
+    centerGraphic = `
+      <rect x="29" y="${40 - h1/2}" width="3" height="${h1}" rx="1.5" fill="${c}" opacity="0.85"/>
+      <rect x="34.5" y="${40 - h2/2}" width="3" height="${h2}" rx="1.5" fill="${e}" opacity="0.95"/>
+      <rect x="40" y="${40 - h3/2}" width="3" height="${h3}" rx="1.5" fill="#ffffff"/>
+      <rect x="45.5" y="${40 - h4/2}" width="3" height="${h4}" rx="1.5" fill="${e}" opacity="0.95"/>
+      <rect x="51" y="${40 - h5/2}" width="3" height="${h5}" rx="1.5" fill="${c}" opacity="0.85"/>
+    `;
+  } else if (pattern === 1) {
+    const angle = ((seed * 47) % 360) * (Math.PI / 180);
+    const sx = 40 + Math.cos(angle) * 16;
+    const sy = 40 + Math.sin(angle) * 16;
+    centerGraphic = `
+      <circle cx="40" cy="40" r="15" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.7"/>
+      <circle cx="40" cy="40" r="7" fill="none" stroke="${e}" stroke-width="1"/>
+      <line x1="40" y1="40" x2="${sx.toFixed(1)}" y2="${sy.toFixed(1)}" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="2" fill="${e}"/>
+      <circle cx="40" cy="40" r="2.5" fill="${c}"/>
+    `;
+  } else if (pattern === 2) {
+    centerGraphic = `
+      <path d="M 28 40 Q 34 ${40 - h3/2} 40 40 T 52 40" fill="none" stroke="${e}" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="40" cy="40" r="3" fill="#ffffff"/>
+      <line x1="28" y1="40" x2="52" y2="40" stroke="${c}" stroke-width="1" stroke-dasharray="2 2" opacity="0.5"/>
+    `;
+  } else {
+    centerGraphic = `
+      <circle cx="40" cy="40" r="14" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.6"/>
+      <circle cx="40" cy="40" r="9" fill="none" stroke="${e}" stroke-width="2" opacity="0.9"/>
+      <circle cx="40" cy="40" r="4" fill="#ffffff"/>
+    `;
   }
-  if(S?.game?.rosterSnapshot){
-    const sp=S.game.rosterSnapshot.find(p=>p.id===id);
-    if(sp)return{...sp,connected:S.players.some(p=>p.id===id&&p.connected),ready:true};
+
+  return `<svg class="av" viewBox="0 0 80 80" aria-hidden="true">
+    <circle cx="40" cy="40" r="36" fill="#0d0d16" stroke="${c}" stroke-width="2" stroke-dasharray="${ringDash}"/>
+    <circle cx="40" cy="40" r="30" fill="#141422" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+    <line x1="16" y1="40" x2="64" y2="40" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+    <line x1="40" y1="16" x2="40" y2="64" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+    <path d="M 23 41 A 17 17 0 0 1 57 41" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
+    <rect x="18" y="34" width="7" height="15" rx="3.5" fill="${c}"/>
+    <rect x="55" y="34" width="7" height="15" rx="3.5" fill="${c}"/>
+    ${centerGraphic}
+    <path d="M 22 46 Q 26 57 37 57" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="38" cy="57" r="2.2" fill="${e}"/>
+    <line x1="40" y1="23" x2="40" y2="10" stroke="${c}" stroke-width="2"/>
+    <circle cx="40" cy="8" r="3" fill="${c}"/>
+    <circle cx="40" cy="8" r="1.5" fill="#ffffff"/>
+  </svg>`;
+}
+
+const wave = '<span class="wave" aria-hidden="true"><i></i><i></i><i></i></span>';
+
+// Roster resolver
+const P = id => {
+  if (S?.result?.players) {
+    const rp = S.result.players.find(p => p.id === id);
+    if (rp) return { ...rp, connected: S.players.some(p => p.id === id && p.connected), ready: true };
   }
-  if(S?.players){
-    const cp=S.players.find(p=>p.id===id);
-    if(cp)return cp;
+  if (S?.game?.rosterSnapshot) {
+    const sp = S.game.rosterSnapshot.find(p => p.id === id);
+    if (sp) return { ...sp, connected: S.players.some(p => p.id === id && p.connected), ready: true };
   }
-  return{name:'Player '+String(id).slice(0,4),seed:0,id:id||'?',connected:false,ready:false};
+  if (S?.players) {
+    const cp = S.players.find(p => p.id === id);
+    if (cp) return cp;
+  }
+  return { name: 'Player ' + String(id).slice(0, 4), seed: 0, id: id || '?', connected: false, ready: false };
 };
 
-function slot(p,x=''){return `<div class="slot ${x} ${p.id===S.you?'me':''} ${p.connected?'':'off'} ${talking.has(p.id)?'talk':''}" data-id="${p.id}">${avatar(p.seed)}<b>${esc(p.name)}</b>${p.id===S.hostId?' 👑':''}<span class="tag ${p.ready?'ok':''}">${!p.connected?'reconnecting…':p.id===S.hostId?'host':p.ready?'✓ ready':'not ready'}</span>${wave}</div>`}
+function slot(p, x = '') {
+  return `<div class="slot ${x} ${p.id === S.you ? 'me' : ''} ${p.connected ? '' : 'off'} ${talking.has(p.id) ? 'talk' : ''}" data-id="${p.id}">
+    ${avatar(p.seed)}
+    <b>${esc(p.name)}</b>
+    ${p.id === S.hostId ? '<span class="host-crown">★</span>' : ''}
+    <span class="tag ${p.ready ? 'ok' : ''}">${!p.connected ? 'OFFLINE' : p.id === S.hostId ? 'HOST' : p.ready ? '● READY' : 'WAITING'}</span>
+    ${wave}
+  </div>`;
+}
 
-// ---------- connection ----------
-function connect(first){
+// ═══ CONNECTION ═══
+function connect(first) {
   clearTimeout(connect.t);
-  try{
+  try {
     let targetHost = window.SERVER_HOST;
-    if(!targetHost){
-      if(!location.host || location.protocol === 'file:'){
+    if (!targetHost) {
+      if (!location.host || location.protocol === 'file:') {
         targetHost = 'localhost:3000';
-      }else if((location.hostname === 'localhost' || location.hostname === '127.0.0.1') && location.port !== '3000'){
+      } else if ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') && location.port !== '3000') {
         targetHost = `${location.hostname}:3000`;
-      }else{
+      } else {
         targetHost = location.host;
       }
     }
     const proto = (location.protocol === 'https:' && !targetHost.includes('localhost')) ? 'wss://' : 'ws://';
     ws = new WebSocket(proto + targetHost);
 
-    ws.onopen=()=>{
-      retry=0;
-      wsConnected=true;
+    ws.onopen = () => {
+      retry = 0;
+      wsConnected = true;
       hideConnBanner();
-      if(me)tx({t:'resume',code:me.code,id:me.id,token:me.token});
+      if (me) tx({ t: 'resume', code: me.code, id: me.id, token: me.token });
       updateVoiceUI();
     };
 
-    ws.onmessage=e=>{
+    ws.onmessage = e => {
       let m;
-      try{m=JSON.parse(e.data)}catch{return}
-      if(m.t==='pong')return;
-      if(m.t==='joined'){
-        me={code:m.code,id:m.id,token:m.token};
-        try{localStorage.setItem('imp-session',JSON.stringify(me))}catch{}
-      }else if(m.t==='state'){
-        const prev=S;S=m.s;onState(prev);
-      }else if(m.t==='error'){
+      try { m = JSON.parse(e.data) } catch { return }
+      if (m.t === 'pong') return;
+      if (m.t === 'joined') {
+        me = { code: m.code, id: m.id, token: m.token };
+        try { localStorage.setItem('imp-session', JSON.stringify(me)) } catch {}
+      } else if (m.t === 'state') {
+        const prev = S; S = m.s; onState(prev);
+      } else if (m.t === 'error') {
         toast(m.msg);
-        if(/expired|not found/i.test(m.msg)){
-          me=null;S=null;
-          try{localStorage.removeItem('imp-session')}catch{}
+        if (/expired|not found/i.test(m.msg)) {
+          me = null; S = null;
+          try { localStorage.removeItem('imp-session') } catch {}
           render();
         }
-      }else if(m.t==='rtc'){
+      } else if (m.t === 'rtc') {
         onRtc(m);
-      }else if(m.t==='speaking'){
-        if(m.v)talking.add(m.id);else talking.delete(m.id);
-        document.querySelectorAll(`[data-id="${m.id}"]`).forEach(el=>el.classList.toggle('talk',!!m.v));
-      }else if(m.t==='chat'){
+      } else if (m.t === 'speaking') {
+        if (m.v) talking.add(m.id); else talking.delete(m.id);
+        document.querySelectorAll(`[data-id="${m.id}"]`).forEach(el => el.classList.toggle('talk', !!m.v));
+      } else if (m.t === 'chat') {
         addChatMessage(m);
-      }else if(m.t==='chat_rejected'){
+      } else if (m.t === 'chat_rejected') {
         toast('🚫 ' + (m.msg || 'Message blocked.'));
-      }else if(m.t==='clue_rejected'){
+      } else if (m.t === 'clue_rejected') {
         toast('⚠️ ' + (m.msg || 'Clue rejected.'));
       }
     };
 
-    ws.onclose=()=>{
-      wsConnected=false;
-      if(S)showConnBanner('Connection lost. Reconnecting…');
-      const delay=Math.min(10000,500*Math.pow(1.5,retry++));
-      connect.t=setTimeout(()=>connect(false),delay);
+    ws.onclose = () => {
+      wsConnected = false;
+      if (S) showConnBanner('Connection lost — reconnecting…');
+      const delay = Math.min(10000, 500 * Math.pow(1.5, retry++));
+      connect.t = setTimeout(() => connect(false), delay);
     };
 
-    ws.onerror=()=>{};
-  }catch(err){
+    ws.onerror = () => {};
+  } catch (err) {
     console.warn('WebSocket init error:', err);
-    wsConnected=false;
-    const delay=Math.min(10000,500*Math.pow(1.5,retry++));
-    connect.t=setTimeout(()=>connect(false),delay);
+    wsConnected = false;
+    const delay = Math.min(10000, 500 * Math.pow(1.5, retry++));
+    connect.t = setTimeout(() => connect(false), delay);
   }
 }
 
-const tx=m=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m));else toast('Connecting to server…')};
+const tx = m => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); else toast('Connecting…') };
 
-// Keep connection alive with periodic app-level heartbeat ping
-setInterval(()=>{
-  if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({t:'ping'}));
-},25000);
+// Keep-alive heartbeat
+setInterval(() => {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'ping' }));
+}, 25000);
 
-function onState(prev){
+function onState(prev) {
   hideConnBanner();
-  if(!prev||prev.phase!==S.phase)sfx[S.phase==='reveal'?'reveal':(S.phase==='result'||S.phase==='results')?'win':'click']();
-  if(prev&&S.players.length>prev.players.length)sfx.join();
-  if(prev&&S.game&&S.game.speaker===S.you&&prev.game?.speaker!==S.you)sfx.turn();
-  if(S.phase!=='vote'&&S.phase!=='voting'&&S.phase!=='revote'&&S.phase!=='tie_revote')sel=null;
-  if(S.notice&&(!prev||prev.notice!==S.notice))toast(S.notice);
-  if(S.phase==='reveal'&&introShown!==S.round){introShown=S.round;intro()}else render();
+  // Phase-specific audio
+  if (!prev || prev.phase !== S.phase) {
+    const phase = S.phase;
+    if (phase === 'reveal') sfx.reveal();
+    else if (phase === 'vote' || phase === 'voting') sfx.tension();
+    else if (phase === 'verdict') sfx.verdict();
+    else if (phase === 'result' || phase === 'results') {
+      const isWin = S.result && ((S.result.winner === 'impostor') === (S.result.impostor === S.you));
+      isWin ? sfx.win() : sfx.lose();
+    } else sfx.click();
+  }
+  if (prev && S.players.length > prev.players.length) sfx.join();
+  if (prev && S.game && S.game.speaker === S.you && prev.game?.speaker !== S.you) sfx.turn();
+  if (S.phase !== 'vote' && S.phase !== 'voting' && S.phase !== 'revote' && S.phase !== 'tie_revote') sel = null;
+  if (S.notice && (!prev || prev.notice !== S.notice)) toast(S.notice);
+  if (S.phase === 'reveal' && introShown !== S.round) { introShown = S.round; intro() } else render();
   syncPeers();
 }
 
-function intro(){
-  app.innerHTML=`<div class="intro"><h1>ROUND ${String(S.round).padStart(2,'0')}</h1><p class="sub">Someone among you is the imposter.</p></div>`;
-  setTimeout(()=>{if(S&&S.phase==='reveal')render()},2200);
+function intro() {
+  app.innerHTML = `<div class="intro-screen">
+    <div class="phase-label">ROUND STARTING</div>
+    <h1>ROUND ${String(S.round).padStart(2, '0')}</h1>
+    <p class="intro-sub">Someone is not who they claim to be.</p>
+  </div>`;
+  setTimeout(() => { if (S && S.phase === 'reveal') render() }, 2200);
 }
 
-// ---------- screens (UI always derives authoritatively from server state) ----------
-function render(){
-  try{
-    if(!S)return home();
-    const f={
+// ═══ SCREENS ═══
+function render() {
+  try {
+    if (!S) return home();
+    const f = {
       lobby,
       reveal,
       clues,
@@ -343,608 +1158,816 @@ function render(){
       result: results,
       results
     }[S.phase];
-    if(!f)return home();
-    app.innerHTML=f();
+    if (!f) return home();
+    app.innerHTML = f();
     bind();
-  }catch(err){
+  } catch (err) {
     console.error('Render error:', err);
-    if(app)app.innerHTML=`<div class="panel" style="color:var(--flare);text-align:center"><h3>Display Error</h3><p class="sub">${esc(err.message)}</p><button class="btn alt" onclick="location.reload()">Reload</button></div>`;
+    if (app) app.innerHTML = `<div class="panel alert" style="text-align:center"><h3 style="color:var(--danger)">Display Error</h3><p class="dim">${esc(err.message)}</p><button class="btn alt" onclick="location.reload()">Reload</button></div>`;
   }
 }
 
-function home(){
-  const reconnectPanel = me ? `<div class="panel" style="text-align:center;border-color:var(--ion)"><p class="sub" style="margin:0 0 8px">Session found for room <b style="color:var(--ion)">${esc(me.code)}</b>…</p><button class="btn alt" id="cl-session" style="min-height:38px;padding:6px 12px;font-size:13px">Cancel & Enter New Room</button></div>` : '';
-  app.innerHTML=`<h1>IMPOSTER</h1><p class="sub">Dead Air. One of you is faking it. Clues, discussion, voting.</p>${reconnectPanel}<div class="panel"><label for="nm">Your name</label><input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text"><div style="height:10px"></div><button class="btn" id="mk">Create room</button></div><div class="panel"><label for="cd">Room code</label><input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase"><div style="height:10px"></div><button class="btn alt" id="jn">Join room</button></div>`;
-  const cl=$('#cl-session');
-  if(cl)cl.onclick=()=>{me=null;try{localStorage.removeItem('imp-session')}catch{}render()};
-  const nm=()=>$('#nm').value.trim()||(toast('Enter a name first.'),'');
-  $('#mk').onclick=()=>{const n=nm();if(n)tx({t:'create',name:n})};
-  $('#jn').onclick=()=>{const n=nm(),c=$('#cd').value.trim().toUpperCase();if(!n)return;if(c.length!==6)return toast('Room codes have 6 characters.');tx({t:'join',name:n,code:c})};
-  $('#cd').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#jn').click()}};
-  $('#nm').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#cd')?.focus()}};
+function home() {
+  const reconnectPanel = me
+    ? `<div class="panel session-banner highlight">
+        <p class="dim" style="margin:0 0 8px">Session found for room <b class="signal-text">${esc(me.code)}</b></p>
+        <button class="btn alt" id="cl-session" style="min-height:38px;padding:6px 12px;font-size:13px">Cancel & enter new room</button>
+      </div>` : '';
+
+  app.innerHTML = `
+    <div class="home-hero">
+      <h1>IMPOSTER</h1>
+      <div class="subtitle">DEAD AIR</div>
+      <p class="tagline">One of you is faking it. Find them through clues, discussion, and deduction.</p>
+    </div>
+    ${reconnectPanel}
+    <div class="panel">
+      <label for="nm">Callsign</label>
+      <input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text" placeholder="Enter your name">
+      <div class="gap-sm"></div>
+      <button class="btn" id="mk">Create Room</button>
+    </div>
+    <div class="panel">
+      <label for="cd">Room Code</label>
+      <input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase;font-family:var(--mono);letter-spacing:0.15em" placeholder="XXXXXX">
+      <div class="gap-sm"></div>
+      <button class="btn alt" id="jn">Join Room</button>
+    </div>`;
+
+  const cl = $('#cl-session');
+  if (cl) cl.onclick = () => { me = null; try { localStorage.removeItem('imp-session') } catch {} render() };
+  const nm = () => $('#nm').value.trim() || (toast('Enter a name first.'), '');
+  $('#mk').onclick = () => { const n = nm(); if (n) tx({ t: 'create', name: n }) };
+  $('#jn').onclick = () => { const n = nm(), c = $('#cd').value.trim().toUpperCase(); if (!n) return; if (c.length !== 6) return toast('Room codes are 6 characters.'); tx({ t: 'join', name: n, code: c }) };
+  $('#cd').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#jn').click() } };
+  $('#nm').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#cd')?.focus() } };
 }
 
-function lobby(){
-  const host=S.hostId===S.you,meP=P(S.you),n=S.players.length;
-  const empty=Array.from({length:Math.max(0,4-n)},()=>'<div class="slot empty">·</div>').join('');
-  const others=S.players.filter(p=>p.id!==S.hostId&&!p.spectator);const ok=n>=4&&others.every(p=>p.ready);
-  return `<div class="row"><h2>ROOM</h2><button class="btn alt" id="lv" style="width:auto;flex:0;font-size:14px;min-height:40px">Leave</button></div><div class="panel"><div class="code" id="cc">${S.code}</div><button class="btn alt" id="cp">📋 Copy invite code</button></div><p class="sub">${n} / 10 players. Need ${Math.max(0,4-n)} more to start.</p><div class="slots">${S.players.map(p=>slot(p)).join('')}${empty}</div>${host?`<div class="panel"><label for="cat">Category</label><select id="cat"><option value="RANDOM">Random each round</option>${CATS.map(c=>`<option ${S.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div><button class="btn" id="go" ${ok?'':'disabled'}>${n<4?'Need '+(4-n)+' more':ok?'Start game':'Waiting for players to ready up'}</button>`:`<button class="btn" id="rd">${meP.ready?'Not ready':"I'm ready"}</button>`}`;
+function lobby() {
+  const host = S.hostId === S.you, meP = P(S.you), n = S.players.length;
+  const empty = Array.from({ length: Math.max(0, 4 - n) }, () => '<div class="slot empty">OPEN</div>').join('');
+  const others = S.players.filter(p => p.id !== S.hostId && !p.spectator);
+  const ok = n >= 4 && others.every(p => p.ready);
+
+  let startLabel = 'START GAME';
+  if (n < 4) startLabel = `NEED ${4 - n} MORE`;
+  else if (!ok) startLabel = 'WAITING FOR READY';
+
+  return `
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="phase-label">LOBBY</div>
+        <h2>ROOM</h2>
+      </div>
+      <button class="btn alt" id="lv" style="width:auto;flex:0;font-size:13px;min-height:40px;padding:0 14px">Leave</button>
+    </div>
+    <div class="panel highlight" style="text-align:center">
+      <div class="room-code" id="cc">${S.code}</div>
+      <button class="btn alt" id="cp" style="font-size:13px;min-height:40px">📋 Copy invite code</button>
+    </div>
+    <p class="dim" style="font:500 12px/1 var(--mono);letter-spacing:0.06em;margin:14px 0 8px">${n} / 10 PLAYERS</p>
+    <div class="slots">${S.players.map(p => slot(p)).join('')}${empty}</div>
+    ${host ? `
+      <div class="panel">
+        <label for="cat">Category</label>
+        <select id="cat">
+          <option value="RANDOM">Random each round</option>
+          ${CATS.map(c => `<option ${S.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn ${ok ? '' : 'alt'}" id="go" ${ok ? '' : 'disabled'}>${startLabel}</button>
+    ` : `
+      <div class="gap-md"></div>
+      <button class="btn ${meP.ready ? 'success' : 'alt'}" id="rd">${meP.ready ? '● READY' : "READY UP"}</button>
+    `}`;
 }
 
-function reveal(){
-  const isSpectator=S.spectator;
-  if(isSpectator){
-    return `<div class="panel" style="text-align:center"><h3 style="color:var(--ion)">SPECTATING</h3><p class="sub">You joined mid-round. You will join active play next round.</p></div>`;
+function reveal() {
+  const isSpectator = S.spectator;
+  if (isSpectator) {
+    return `<div class="panel highlight" style="text-align:center">
+      <div class="phase-label">SPECTATING</div>
+      <p class="dim">You joined mid-round. You'll play next round.</p>
+    </div>`;
   }
-  const imp=S.secret&&S.secret.impostor;
-  return `<div class="card ${imp?'imp':''}"><div><p class="sub">${imp?'':'Your secret word'}</p>${imp?'<div class="word">YOU ARE THE IMPOSTER</div><p>You don\'t know the secret word. Blend in.</p><p class="sub">Category: '+esc(S.game.category)+'</p>':`<div class="word">${esc(S.secret.word)}</div><p class="sub">Category: ${esc(S.game.category)}</p>`}</div></div><p class="sub" style="text-align:center">10 seconds to memorize. Clues phase starts shortly.</p>`;
+  const imp = S.secret && S.secret.impostor;
+  return `
+    <div class="hdr">
+      <div class="phase-label">ROLE REVEAL</div>
+    </div>
+    <div class="reveal-card ${imp ? 'imp' : 'crew'}">
+      <div>
+        ${imp
+          ? `<p class="dim" style="font:500 11px/1 var(--mono);letter-spacing:0.1em;margin-bottom:12px">YOUR ROLE</p>
+             <div class="secret-word">YOU ARE THE IMPOSTER</div>
+             <p style="margin:12px 0 0;font-size:14px;color:var(--text-dim)">You don't know the secret word. Blend in.</p>
+             <div class="gap-sm"></div>
+             <p class="dim" style="font:500 12px/1 var(--mono)">CATEGORY: <b style="color:var(--danger)">${esc(S.game.category)}</b></p>`
+          : `<p class="dim" style="font:500 11px/1 var(--mono);letter-spacing:0.1em;margin-bottom:12px">YOUR SECRET WORD</p>
+             <div class="secret-word">${esc(S.secret.word)}</div>
+             <div class="gap-sm"></div>
+             <p class="dim" style="font:500 12px/1 var(--mono)">CATEGORY: <b style="color:var(--signal)">${esc(S.game.category)}</b></p>`
+        }
+      </div>
+    </div>
+    <p class="dim text-center" style="font-size:13px;margin-top:14px">Memorize your role. Clues phase starts shortly.</p>`;
 }
 
-function clues(){
-  const isSpectator=S.spectator;
-  const isMyTurn=S.game.activeSpeaker===S.you;
-  const activeSpeakerName=P(S.game.activeSpeaker).name;
-  const clueCount=S.game.clues.length;
-  const totalClues=S.game.order.length;
+function clues() {
+  const isSpectator = S.spectator;
+  const isMyTurn = S.game.activeSpeaker === S.you;
+  const activeSpeakerName = P(S.game.activeSpeaker).name;
+  const clueCount = S.game.clues.length;
+  const totalClues = S.game.order.length;
 
-  let turnActionHtml='';
-  if(isSpectator){
-    turnActionHtml=`<div class="panel" style="text-align:center"><p class="sub">You are spectating this round.</p></div>`;
-  }else if(isMyTurn){
-    turnActionHtml=`<div class="panel" style="border-color:var(--flare);text-align:center"><h3 style="color:var(--flare);margin-bottom:6px">YOUR TURN TO SUBMIT A CLUE</h3><p class="sub" style="font-size:13px;margin-bottom:10px">One single word only. Secret word & duplicates will be rejected.</p><div style="display:flex;gap:8px"><input id="clue-in" maxlength="24" placeholder="Type 1-word clue…" autocomplete="off" enterkeyhint="go" style="flex:1"><button class="btn" id="clue-sub" style="width:auto;min-width:100px;padding:0 14px">Submit</button></div></div>`;
-  }else{
-    turnActionHtml=`<div class="panel" style="text-align:center"><p class="sub">Waiting for <b style="color:var(--ion)">${esc(activeSpeakerName)}</b> to submit a clue…</p></div>`;
+  let turnAction = '';
+  if (isSpectator) {
+    turnAction = `<div class="panel" style="text-align:center"><p class="dim">Spectating this round.</p></div>`;
+  } else if (isMyTurn) {
+    turnAction = `<div class="panel alert" style="text-align:center">
+      <h3 style="color:var(--danger);margin-bottom:8px">YOUR TURN</h3>
+      <p class="dim" style="font-size:12px;margin-bottom:12px">Submit exactly one word. No duplicates or secret word.</p>
+      <div style="display:flex;gap:8px">
+        <input id="clue-in" maxlength="24" placeholder="One-word clue…" autocomplete="off" enterkeyhint="go" style="flex:1">
+        <button class="btn danger" id="clue-sub" style="width:auto;min-width:90px;padding:0 14px">Submit</button>
+      </div>
+    </div>`;
+  } else {
+    turnAction = `<div class="panel" style="text-align:center">
+      <p class="dim">Waiting for <b class="signal-text">${esc(activeSpeakerName)}</b> to submit a clue…</p>
+    </div>`;
   }
 
-  const cluesListHtml=S.game.clues.length?`<div class="panel"><b>Submitted Clues (${clueCount}/${totalClues})</b><div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${S.game.clues.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--void);padding:6px 10px;border-radius:4px;border:1px solid var(--hull2)"><span>${avatar(P(c.pid).seed)} <b style="vertical-align:middle;margin-left:4px">${esc(P(c.pid).name)}</b></span><span style="font-family:var(--d);color:${c.timedOut?'var(--dim)':'var(--ion)'}">${esc(c.text)}</span></div>`).join('')}</div></div>`:`<div class="panel" style="text-align:center"><p class="sub">No clues submitted yet.</p></div>`;
-
-  let roleSecretHtml='';
-  if(S.secret&&S.secret.impostor){
-    roleSecretHtml=`<p class="sub" style="text-align:center;color:var(--flare)">You are the imposter! Category: <b>${esc(S.game.category)}</b>. Fake a convincing clue.</p>`;
-  }else if(S.secret&&S.secret.word){
-    roleSecretHtml=`<p class="sub" style="text-align:center">Category: <b>${esc(S.game.category)}</b> · Secret word: <b style="color:var(--ion)">${esc(S.secret.word)}</b></p>`;
+  let roleHint = '';
+  if (S.secret && S.secret.impostor) {
+    roleHint = `<p class="dim text-center" style="font-size:12px;color:var(--danger)">You are the imposter · Category: <b>${esc(S.game.category)}</b> · Fake a convincing clue</p>`;
+  } else if (S.secret && S.secret.word) {
+    roleHint = `<p class="dim text-center" style="font-size:12px">Category: <b>${esc(S.game.category)}</b> · Word: <b class="signal-text">${esc(S.secret.word)}</b></p>`;
   }
 
-  return `<div class="row"><h2>CLUES</h2><div class="timer" id="tm"></div></div>${roleSecretHtml}${turnActionHtml}<div class="panel"><b>Speaking order</b><div class="slots" style="margin-top:8px">${S.game.order.map((id,i)=>slot(P(id),id===S.game.activeSpeaker?'spot':i<S.game.clueIndex?'off':'')).join('')}</div></div>${cluesListHtml}`;
+  const cluesList = clueCount
+    ? `<div class="panel">
+        <label style="margin-bottom:10px">Clues ${clueCount}/${totalClues}</label>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${S.game.clues.map(c => `<div class="clue-item">
+            <span class="clue-author">${avatar(P(c.pid).seed)} <b>${esc(P(c.pid).name)}</b></span>
+            <span class="clue-word ${c.timedOut ? 'timeout' : ''}">${esc(c.text)}</span>
+          </div>`).join('')}
+        </div>
+      </div>`
+    : `<div class="panel text-center"><p class="dim" style="font-size:13px">No clues yet.</p></div>`;
+
+  return `
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="phase-label">CLUES</div>
+        <h2>SUBMIT CLUES</h2>
+      </div>
+      <div class="timer" id="tm"></div>
+    </div>
+    ${roleHint}
+    ${turnAction}
+    <div class="panel">
+      <label style="margin-bottom:8px">Speaking order</label>
+      <div class="slots">${S.game.order.map((id, i) =>
+        slot(P(id), id === S.game.activeSpeaker ? 'spot' : i < S.game.clueIndex ? 'off' : '')
+      ).join('')}</div>
+    </div>
+    ${cluesList}`;
 }
 
-function discussion(){
-  const isSpectator=S.spectator;
-  const meP=P(S.you);
-  const readyCount=S.players.filter(p=>S.game.roster.includes(p.id)&&p.discussReady).length;
-  const totalActive=S.players.filter(p=>S.game.roster.includes(p.id)&&p.connected).length;
+function discussion() {
+  const isSpectator = S.spectator;
+  const meP = P(S.you);
+  const readyCount = S.players.filter(p => S.game.roster.includes(p.id) && p.discussReady).length;
+  const totalActive = S.players.filter(p => S.game.roster.includes(p.id) && p.connected).length;
 
-  let roleSecretHtml='';
-  if(S.secret&&S.secret.impostor){
-    roleSecretHtml=`<p class="sub" style="text-align:center;color:var(--flare)">You are the imposter. Blend in, deflect suspicion, and guess the word.</p>`;
-  }else if(S.secret&&S.secret.word){
-    roleSecretHtml=`<p class="sub" style="text-align:center">Category: <b>${esc(S.game.category)}</b> · Secret word: <b style="color:var(--ion)">${esc(S.secret.word)}</b></p>`;
+  let roleHint = '';
+  if (S.secret && S.secret.impostor) {
+    roleHint = `<p class="dim text-center" style="font-size:12px;color:var(--danger)">You are the imposter. Deflect. Deceive. Survive.</p>`;
+  } else if (S.secret && S.secret.word) {
+    roleHint = `<p class="dim text-center" style="font-size:12px">Category: <b>${esc(S.game.category)}</b> · Word: <b class="signal-text">${esc(S.secret.word)}</b></p>`;
   }
 
-  const clueSummary=S.game.clues.length?`<div class="panel"><b>Clue Transmissions</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">${S.game.clues.map(c=>`<div style="background:var(--void);padding:6px 8px;border-radius:4px;border:1px solid var(--hull2);font-size:13px"><b>${esc(P(c.pid).name)}:</b> <span style="font-family:var(--d);color:${c.timedOut?'var(--dim)':'var(--ion)'}">${esc(c.text)}</span></div>`).join('')}</div></div>`:'';
+  const clueSummary = S.game.clues.length
+    ? `<div class="panel">
+        <label style="margin-bottom:8px">Clue Summary</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          ${S.game.clues.map(c => `<div style="background:var(--bg);padding:6px 8px;border-radius:var(--radius);border:1px solid var(--border);font-size:12px">
+            <b style="font-size:11px">${esc(P(c.pid).name)}</b><br>
+            <span class="clue-word ${c.timedOut ? 'timeout' : ''}" style="font-size:14px">${esc(c.text)}</span>
+          </div>`).join('')}
+        </div>
+      </div>` : '';
 
-  return `<div class="row"><h2>DISCUSSION</h2><div class="timer" id="tm"></div></div>${roleSecretHtml}<div class="panel" style="text-align:center"><p class="sub">Debate in Comms Link below. Discussion ends when timer expires or all players are ready.</p>${!isSpectator?`<button class="btn ${meP.discussReady?'green':'alt'}" id="rd-disc" style="margin-top:10px">${meP.discussReady?'✓ Ready to Vote':'I am Ready to Vote'}</button>`:''}<p class="sub" style="font-size:12px;margin-top:6px">${readyCount} / ${totalActive} players ready to vote</p></div>${clueSummary}`;
+  return `
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="phase-label">DISCUSSION</div>
+        <h2>DISCUSS</h2>
+      </div>
+      <div class="timer" id="tm"></div>
+    </div>
+    ${roleHint}
+    <div class="panel text-center">
+      <p class="dim" style="font-size:13px;margin-bottom:12px">Debate via Comms. Discussion ends when timer expires or all players ready.</p>
+      ${!isSpectator ? `<button class="btn ${meP.discussReady ? 'success' : 'alt'}" id="rd-disc">${meP.discussReady ? '● READY TO VOTE' : 'READY TO VOTE'}</button>` : ''}
+      <p class="faint" style="font:500 11px/1 var(--mono);margin-top:8px;letter-spacing:0.06em">${readyCount} / ${totalActive} READY</p>
+    </div>
+    ${clueSummary}`;
 }
 
-function voting(){
-  const isSpectator=S.spectator;
-  const voted=S.game.voted.includes(S.you);
-  const remaining=S.game.roster.length-S.game.voted.length;
+function voting() {
+  const isSpectator = S.spectator;
+  const voted = S.game.voted.includes(S.you);
+  const remaining = S.game.roster.length - S.game.voted.length;
 
-  return `<div class="row"><h2>WHO IS THE IMPOSTER?</h2><div class="timer" id="tm"></div></div><p class="sub">Vote for the player you think is faking it. Abstaining helps the imposter!</p><div class="vote">${S.game.roster.filter(id=>id!==S.you).map(id=>`<button class="slot ${sel===id?'pick':''} ${talking.has(id)?' talk':''}" data-v="${id}" ${voted||isSpectator?'disabled':''}>${avatar(P(id).seed)}<b>${esc(P(id).name)}</b></button>`).join('')}</div>${!isSpectator?`<button class="btn" id="cast" style="margin-top:14px" ${voted||!sel?'disabled':''}>${voted?'✓ Vote locked in':'Lock vote'}</button>`:'<p class="sub" style="text-align:center;margin-top:14px">Spectators cannot vote.</p>'}<p class="sub" style="text-align:center">${voted?`Waiting for ${remaining} more vote${remaining!==1?'s':''}…`:`${S.game.voted.length} / ${S.game.roster.length} voted`}</p>`;
+  return `
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="phase-label">VOTE</div>
+        <h2>WHO IS THE IMPOSTER?</h2>
+      </div>
+      <div class="timer" id="tm"></div>
+    </div>
+    <p class="dim" style="font-size:13px;margin-bottom:12px">Select the player you suspect. Abstaining helps the imposter.</p>
+    <div class="vote-grid">
+      ${S.game.roster.filter(id => id !== S.you).map(id =>
+        `<button class="slot ${sel === id ? 'pick' : ''} ${talking.has(id) ? ' talk' : ''}" data-v="${id}" ${voted || isSpectator ? 'disabled' : ''}>
+          ${avatar(P(id).seed)}
+          <b>${esc(P(id).name)}</b>
+        </button>`
+      ).join('')}
+    </div>
+    ${!isSpectator
+      ? `<div class="gap-md"></div>
+         <button class="btn danger" id="cast" ${voted || !sel ? 'disabled' : ''}>${voted ? '● VOTE LOCKED' : 'LOCK VOTE'}</button>`
+      : '<p class="dim text-center" style="margin-top:14px;font-size:12px">Spectators cannot vote.</p>'}
+    <p class="faint text-center" style="font:500 11px/1 var(--mono);margin-top:10px;letter-spacing:0.06em">
+      ${voted ? `WAITING FOR ${remaining} MORE` : `${S.game.voted.length} / ${S.game.roster.length} VOTED`}
+    </p>`;
 }
 
-function tie_defense(){
-  const tiedNames=S.game.tiedCandidates.map(id=>P(id).name).join(' vs ');
-  return `<div class="row"><h2>TIE DEFENSE</h2><div class="timer" id="tm"></div></div><div class="panel" style="border-color:var(--flare);text-align:center"><h3 style="color:var(--flare)">VOTE TIED: ${esc(tiedNames)}</h3><p class="sub" style="margin-top:8px">Tied players have 15 seconds to defend themselves in Comms chat! Revote will begin shortly.</p></div><div class="slots" style="margin-top:14px">${S.game.tiedCandidates.map(id=>slot(P(id),'spot')).join('')}</div>`;
+function tie_defense() {
+  const tiedNames = S.game.tiedCandidates.map(id => P(id).name).join(' vs ');
+  return `
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="phase-label">TIE DEFENSE</div>
+        <h2>DEADLOCK</h2>
+      </div>
+      <div class="timer" id="tm"></div>
+    </div>
+    <div class="panel alert text-center">
+      <h3 style="color:var(--danger);margin-bottom:8px">VOTE TIED: ${esc(tiedNames)}</h3>
+      <p class="dim" style="font-size:13px">Tied players have 15 seconds to defend themselves. Revote begins shortly.</p>
+    </div>
+    <div class="slots" style="margin-top:14px">
+      ${S.game.tiedCandidates.map(id => slot(P(id), 'spot')).join('')}
+    </div>`;
 }
 
-function tie_revote(){
-  const isSpectator=S.spectator;
-  const isTied=S.game.tiedCandidates.includes(S.you);
-  const revoted=S.game.revoted.includes(S.you);
-  const eligibleTargets=S.game.tiedCandidates.filter(id=>id!==S.you);
+function tie_revote() {
+  const isSpectator = S.spectator;
+  const isTied = S.game.tiedCandidates.includes(S.you);
+  const revoted = S.game.revoted.includes(S.you);
+  const eligibleTargets = S.game.tiedCandidates.filter(id => id !== S.you);
 
-  return `<div class="row"><h2>TIE REVOTE</h2><div class="timer" id="tm"></div></div><p class="sub">${isTied?'You are on defense! Tied players cannot vote for themselves.':'Vote strictly between the tied players.'}</p><div class="vote">${eligibleTargets.map(id=>`<button class="slot ${sel===id?'pick':''}" data-rv="${id}" ${revoted||isSpectator?'disabled':''}>${avatar(P(id).seed)}<b>${esc(P(id).name)}</b></button>`).join('')}</div>${!isSpectator&&!isTied?`<button class="btn" id="cast-revote" style="margin-top:14px" ${revoted||!sel?'disabled':''}>${revoted?'✓ Revote locked in':'Lock revote'}</button>`:''}<p class="sub" style="text-align:center">${revoted?'Revote recorded. Waiting for others…':`${S.game.revoted.length} revotes recorded`}</p>`;
+  return `
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="phase-label">REVOTE</div>
+        <h2>DECIDE</h2>
+      </div>
+      <div class="timer" id="tm"></div>
+    </div>
+    <p class="dim" style="font-size:13px;margin-bottom:12px">${isTied ? 'You are on defense. Tied players cannot self-vote.' : 'Vote strictly between the tied players.'}</p>
+    <div class="vote-grid">
+      ${eligibleTargets.map(id =>
+        `<button class="slot ${sel === id ? 'pick' : ''}" data-rv="${id}" ${revoted || isSpectator ? 'disabled' : ''}>
+          ${avatar(P(id).seed)}
+          <b>${esc(P(id).name)}</b>
+        </button>`
+      ).join('')}
+    </div>
+    ${!isSpectator && !isTied
+      ? `<div class="gap-md"></div>
+         <button class="btn danger" id="cast-revote" ${revoted || !sel ? 'disabled' : ''}>${revoted ? '● REVOTE LOCKED' : 'LOCK REVOTE'}</button>`
+      : ''}
+    <p class="faint text-center" style="font:500 11px/1 var(--mono);margin-top:10px;letter-spacing:0.06em">
+      ${revoted ? 'REVOTE RECORDED' : `${S.game.revoted.length} REVOTES IN`}
+    </p>`;
 }
 
-function verdict(){
-  const caughtId=S.game.caughtId;
-  const caughtPlayer=P(caughtId);
-  return `<div class="row"><h2>VERDICT</h2><div class="timer" id="tm"></div></div><div class="panel" style="text-align:center;border-color:var(--flare)"><div style="margin:12px auto">${avatar(caughtPlayer.seed)}</div><h2 style="color:var(--flare)">${esc(caughtPlayer.name)}</h2><p class="sub" style="margin-top:8px">Received the plurality of votes!</p><p style="margin-top:12px;font-family:var(--d);color:var(--ion)">PREPARING FINAL GUESS…</p></div>`;
+function verdict() {
+  const caughtId = S.game.caughtId;
+  const caughtPlayer = P(caughtId);
+  return `
+    <div class="hdr">
+      <div class="phase-label">VERDICT</div>
+    </div>
+    <div class="panel alert text-center verdict-reveal" style="padding:28px 16px">
+      <div style="margin:0 auto 12px">${avatar(caughtPlayer.seed)}</div>
+      <h2 style="color:var(--danger)">${esc(caughtPlayer.name)}</h2>
+      <p class="dim" style="margin-top:8px;font-size:13px">Received the most votes.</p>
+      <div class="gap-md"></div>
+      <p style="font:600 13px/1 var(--mono);color:var(--signal);letter-spacing:0.1em">PREPARING FINAL GUESS…</p>
+    </div>`;
 }
 
-function final_guess(){
-  const isImposter=S.secret&&S.secret.impostor;
-  return `<div class="row"><h2>FINAL GUESS</h2><div class="timer" id="tm"></div></div>${isImposter?`<div class="panel" style="border-color:var(--flare);text-align:center"><h3 style="color:var(--flare)">YOU WERE CAUGHT!</h3><p class="sub" style="margin:8px 0 14px">Category: <b style="color:var(--ion)">${esc(S.game.category)}</b>. Guess the secret word to steal the victory!</p><div style="display:flex;gap:8px"><input id="guess-in" maxlength="30" placeholder="Type the secret word…" autocomplete="off" enterkeyhint="go" style="flex:1"><button class="btn green" id="guess-sub" style="width:auto;min-width:100px;padding:0 14px">Guess</button></div><p class="sub" style="font-size:12px;margin-top:10px">You have exactly ONE attempt. Plural and compound variants are accepted.</p></div>`:`<div class="panel" style="text-align:center"><h3 style="color:var(--ion)">THE IMPOSTER IS GUESSING</h3><p class="sub" style="margin-top:8px">The imposter has 30 seconds to guess the secret word. If they fail, CREW WINS!</p></div>`}`;
+function final_guess() {
+  const isImposter = S.secret && S.secret.impostor;
+  return `
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="phase-label">FINAL GUESS</div>
+        <h2>${isImposter ? 'YOUR LAST CHANCE' : 'THE IMPOSTER GUESSES'}</h2>
+      </div>
+      <div class="timer" id="tm"></div>
+    </div>
+    ${isImposter
+      ? `<div class="panel alert text-center">
+          <h3 style="color:var(--danger);margin-bottom:8px">YOU WERE CAUGHT</h3>
+          <p class="dim" style="font-size:13px;margin-bottom:14px">Category: <b class="signal-text">${esc(S.game.category)}</b>. Guess the word to steal victory.</p>
+          <div style="display:flex;gap:8px">
+            <input id="guess-in" maxlength="30" placeholder="Type the secret word…" autocomplete="off" enterkeyhint="go" style="flex:1">
+            <button class="btn success" id="guess-sub" style="width:auto;min-width:90px;padding:0 14px">Guess</button>
+          </div>
+          <p class="faint" style="font-size:11px;margin-top:10px;font-family:var(--mono)">One attempt. Plurals and compounds accepted.</p>
+        </div>`
+      : `<div class="panel highlight text-center">
+          <h3 class="signal-text">THE IMPOSTER IS GUESSING</h3>
+          <p class="dim" style="margin-top:8px;font-size:13px">30 seconds to guess the word. If wrong — crew wins.</p>
+        </div>`
+    }`;
 }
 
-function results(){
-  const r=S.result;
-  const isHost=S.hostId===S.you;
-  const won=(r.winner==='impostor')===(r.impostor===S.you);
+function results() {
+  const r = S.result;
+  const isHost = S.hostId === S.you;
+  const won = (r.winner === 'impostor') === (r.impostor === S.you);
+  const crewWin = r.winner === 'crew';
 
-  let guessInfoHtml='';
-  if(r.finalGuess&&r.finalGuess.attempted){
-    guessInfoHtml=`<div class="panel" style="text-align:center"><p class="sub" style="margin-bottom:4px">Imposter final guess: <b>"${esc(r.finalGuess.word)}"</b></p><b style="color:${r.finalGuess.correct?'var(--flare)':'var(--ion)'}">${r.finalGuess.correct?'✓ GUESS CORRECT':'✗ GUESS WRONG'}</b></div>`;
+  let guessInfo = '';
+  if (r.finalGuess && r.finalGuess.attempted) {
+    guessInfo = `<div class="panel text-center">
+      <p class="dim" style="margin-bottom:4px;font-size:12px">Imposter guessed: <b class="mono">"${esc(r.finalGuess.word)}"</b></p>
+      <b style="font:600 13px/1 var(--mono);color:${r.finalGuess.correct ? 'var(--danger)' : 'var(--success)'}">${r.finalGuess.correct ? '✓ CORRECT' : '✗ WRONG'}</b>
+    </div>`;
   }
 
-  return `<h2>${r.winner==='crew'?'🎉 CREW WINS':'💀 IMPOSTER WINS'}</h2><p class="${won?'tally':'sub'}">${won?'You won this round!':'Better luck next time.'}</p><p>${esc(r.text)}</p>${guessInfoHtml}<div class="slots">${S.game.roster.map(id=>`<div class="slot ${id===r.eliminated?'dead':''} ${id===r.impostor?'spot':''}">${avatar(P(id).seed)}<b>${esc(P(id).name)}</b><span class="tally">${r.tally[id]||0} votes</span><span class="tag">${id===r.impostor?'🔴 IMPOSTER':'crew'}${r.votes[id]?' · voted '+esc(P(r.votes[id]).name):''}</span></div>`).join('')}</div><div class="panel" style="text-align:center">The secret word was <span class="word">${esc(r.word)}</span></div>${isHost?`<div class="btn-row"><button class="btn green" id="ag">▶ Play again</button><button class="btn alt" id="nx">Back to lobby</button></div>`:'<p class="sub">Waiting for the host to continue…</p>'}`;
+  return `
+    <div class="result-banner ${crewWin ? 'crew-win' : 'imp-win'}">
+      <h1 style="color:${crewWin ? 'var(--success)' : 'var(--danger)'}">${crewWin ? 'CREW WINS' : 'IMPOSTER WINS'}</h1>
+      <p class="${won ? 'tally' : 'dim'}" style="font-size:14px">${won ? 'You won this round.' : 'Better luck next time.'}</p>
+      <p class="dim" style="font-size:13px;margin-top:8px">${esc(r.text)}</p>
+    </div>
+    ${guessInfo}
+    <div class="slots">
+      ${S.game.roster.map(id => `<div class="slot ${id === r.eliminated ? 'dead' : ''} ${id === r.impostor ? 'spot' : ''}">
+        ${avatar(P(id).seed)}
+        <b>${esc(P(id).name)}</b>
+        <span class="tally">${r.tally[id] || 0} votes</span>
+        <span class="tag">${id === r.impostor ? '🔴 IMPOSTER' : 'CREW'}${r.votes[id] ? ' · voted ' + esc(P(r.votes[id]).name) : ''}</span>
+      </div>`).join('')}
+    </div>
+    <div class="panel text-center" style="margin-top:14px">
+      <p class="faint" style="font:500 11px/1 var(--mono);letter-spacing:0.06em;margin-bottom:6px">SECRET WORD</p>
+      <div class="result-word">${esc(r.word)}</div>
+    </div>
+    ${isHost
+      ? `<div class="btn-row">
+          <button class="btn success" id="ag">▶ Play Again</button>
+          <button class="btn alt" id="nx">Back to Lobby</button>
+        </div>`
+      : '<p class="dim text-center" style="margin-top:14px;font-size:13px">Waiting for host…</p>'
+    }`;
 }
 
-function bind(){
-  const on=(s,f)=>{const e=$(s);if(e)e.onclick=()=>{sfx.click();f(e)}};
-  on('#lv',()=>{tx({t:'leave'});try{localStorage.removeItem('imp-session')}catch{}me=null;S=null;closeAllPeers();render()});
-  on('#cp',()=>{
-    const text=S.code;
-    if(navigator.share){navigator.share({title:'Join my Imposter game!',text:`Join my game: ${text}`}).catch(()=>{})}
-    else if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>toast('Room code copied!'),()=>toast('Press and hold the code to copy it.'))}
-    else{toast('Press and hold the code to copy it.')}
+// ═══ EVENT BINDING ═══
+function bind() {
+  const on = (s, f) => { const e = $(s); if (e) e.onclick = () => { sfx.click(); f(e) } };
+  on('#lv', () => { tx({ t: 'leave' }); try { localStorage.removeItem('imp-session') } catch {} me = null; S = null; closeAllPeers(); render() });
+  on('#cp', () => {
+    const text = S.code;
+    if (navigator.share) { navigator.share({ title: 'Join my Imposter game!', text: `Join my game: ${text}` }).catch(() => {}) }
+    else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast('Room code copied!'), () => toast('Press and hold the code to copy.')) }
+    else { toast('Press and hold the code to copy.') }
   });
-  on('#rd',()=>tx({t:'ready',v:!P(S.you).ready}));
-  on('#go',()=>tx({t:'start'}));
-  on('#nx',()=>tx({t:'next'}));
-  on('#ag',()=>tx({t:'again'}));
-  const cat=$('#cat');if(cat)cat.onchange=()=>tx({t:'category',v:cat.value});
+  on('#rd', () => tx({ t: 'ready', v: !P(S.you).ready }));
+  on('#go', () => tx({ t: 'start' }));
+  on('#nx', () => tx({ t: 'next' }));
+  on('#ag', () => tx({ t: 'again' }));
+  const cat = $('#cat'); if (cat) cat.onchange = () => tx({ t: 'category', v: cat.value });
 
   // Clue submission
-  const clueSub=$('#clue-sub');
-  if(clueSub){
-    clueSub.onclick=()=>{
-      const inp=$('#clue-in');
-      const val=(inp?.value||'').trim();
-      if(!val)return toast('Type a clue first.');
-      tx({t:'clue',word:val,roundId:S?.roundId});
+  const clueSub = $('#clue-sub');
+  if (clueSub) {
+    clueSub.onclick = () => {
+      const inp = $('#clue-in');
+      const val = (inp?.value || '').trim();
+      if (!val) return toast('Type a clue first.');
+      tx({ t: 'clue', word: val, roundId: S?.roundId });
     };
   }
-  const clueIn=$('#clue-in');
-  if(clueIn){
-    clueIn.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#clue-sub')?.click()}};
+  const clueIn = $('#clue-in');
+  if (clueIn) {
+    clueIn.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#clue-sub')?.click() } };
   }
 
-  // Discussion ready toggle
-  on('#rd-disc',()=>tx({t:'ready_discuss',v:!P(S.you).discussReady,roundId:S?.roundId}));
+  // Discussion ready
+  on('#rd-disc', () => tx({ t: 'ready_discuss', v: !P(S.you).discussReady, roundId: S?.roundId }));
 
   // Voting
-  document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{if(!S.game.voted.includes(S.you)){sel=b.dataset.v;render()}});
-  on('#cast',()=>{tx({t:'vote',target:sel,roundId:S?.roundId});sfx.vote()});
+  document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { if (!S.game.voted.includes(S.you)) { sel = b.dataset.v; render() } });
+  on('#cast', () => { tx({ t: 'vote', target: sel, roundId: S?.roundId }); sfx.vote() });
 
   // Revoting
-  document.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{if(!S.game.revoted.includes(S.you)){sel=b.dataset.rv;render()}});
-  on('#cast-revote',()=>{tx({t:'revote',target:sel,roundId:S?.roundId});sfx.vote()});
+  document.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { if (!S.game.revoted.includes(S.you)) { sel = b.dataset.rv; render() } });
+  on('#cast-revote', () => { tx({ t: 'revote', target: sel, roundId: S?.roundId }); sfx.vote() });
 
-  // Final guess submission
-  const guessSub=$('#guess-sub');
-  if(guessSub){
-    guessSub.onclick=()=>{
-      const inp=$('#guess-in');
-      const val=(inp?.value||'').trim();
-      if(!val)return toast('Type your guess first.');
-      tx({t:'guess',word:val,roundId:S?.roundId});
+  // Final guess
+  const guessSub = $('#guess-sub');
+  if (guessSub) {
+    guessSub.onclick = () => {
+      const inp = $('#guess-in');
+      const val = (inp?.value || '').trim();
+      if (!val) return toast('Type your guess first.');
+      tx({ t: 'guess', word: val, roundId: S?.roundId });
     };
   }
-  const guessIn=$('#guess-in');
-  if(guessIn){
-    guessIn.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#guess-sub')?.click()}};
+  const guessIn = $('#guess-in');
+  if (guessIn) {
+    guessIn.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#guess-sub')?.click() } };
   }
 }
 
-// ---------- timer display ----------
-let timerInterval=null;
-function startTimer(){
+// ═══ TIMER ═══
+let timerInterval = null;
+function startTimer() {
   clearInterval(timerInterval);
-  timerInterval=setInterval(()=>{
-    const t=$('#tm');
-    if(t&&S?.deadline){
-      const left=Math.max(0,Math.ceil((S.deadline-Date.now())/1000));
-      t.textContent=left+'s';
-      if(left<=10)t.style.color='#ff3333';
-      else t.style.color='';
+  timerInterval = setInterval(() => {
+    const t = $('#tm');
+    if (t && S?.deadline) {
+      const left = Math.max(0, Math.ceil((S.deadline - Date.now()) / 1000));
+      t.textContent = left + 's';
+      t.classList.toggle('urgent', left <= 10);
     }
-  },250);
+  }, 250);
 }
 startTimer();
 
-// ---------- voice (WebRTC mesh + signaling relay) ----------
+// ═══ VOICE (WebRTC mesh) ═══
+const peers = new Map();
+const iceQueues = new Map();
+let stream = null;
 
-const peers=new Map(); // id -> { pc, tx, init, disconnectTimer }
-const iceQueues=new Map(); // id -> candidate[]
-let stream=null;
+let micState = 'disabled';
+let voiceConnState = 'none';
 
-// Separate state models:
-// Microphone: 'disabled' | 'denied' | 'enabled' | 'muted'
-let micState='disabled';
-// Voice connection: 'none' | 'connecting' | 'connected' | 'degraded' | 'reconnecting' | 'failed'
-let voiceConnState='none';
-
-function recomputeVoiceConnState(){
-  if(!stream||!peers.size){
-    voiceConnState='none';
+function recomputeVoiceConnState() {
+  if (!stream || !peers.size) {
+    voiceConnState = 'none';
     updateVoiceUI();
     return;
   }
-  const states=[...peers.values()].map(p=>p.pc.connectionState);
-  if(states.some(s=>s==='connected')){
-    voiceConnState='connected';
-  }else if(states.some(s=>s==='connecting'||s==='new')){
-    voiceConnState='connecting';
-  }else if(states.some(s=>s==='disconnected')){
-    voiceConnState='degraded';
-  }else if(states.every(s=>s==='failed'||s==='closed')){
-    voiceConnState='failed';
-  }else{
-    voiceConnState='connecting';
-  }
+  const states = [...peers.values()].map(p => p.pc.connectionState);
+  if (states.some(s => s === 'connected')) voiceConnState = 'connected';
+  else if (states.some(s => s === 'connecting' || s === 'new')) voiceConnState = 'connecting';
+  else if (states.some(s => s === 'disconnected')) voiceConnState = 'degraded';
+  else if (states.every(s => s === 'failed' || s === 'closed')) voiceConnState = 'failed';
+  else voiceConnState = 'connecting';
   updateVoiceUI();
 }
 
-function updateVoiceUI(){
-  const el=$('#vst'),btn=$('#mic');
-  if(!el||!btn)return;
+function updateVoiceUI() {
+  const el = $('#vst'), btn = $('#mic');
+  if (!el || !btn) return;
 
-  btn.classList.toggle('on',micState==='enabled');
-  btn.textContent=micState==='enabled'?'🎙':(micState==='muted'?'🔇':'🎙');
+  btn.classList.toggle('on', micState === 'enabled');
+  btn.textContent = micState === 'enabled' ? '🎙' : (micState === 'muted' ? '🔇' : '🎙');
 
-  let text='';
-  if(micState==='denied'){
-    text='🚫 Mic permission denied';
-  }else if(micState==='disabled'){
-    text='Tap 🎙 for voice';
-  }else{
-    const micLabel=micState==='enabled'?'Mic live':'Mic muted';
-    if(voiceConnState==='none'){
-      text=`🎙 ${micLabel} (no crew)`;
-    }else if(voiceConnState==='connecting'){
-      text=`🟡 Voice connecting… (${micLabel})`;
-    }else if(voiceConnState==='connected'){
-      text=micState==='enabled'?'🟢 Voice live':'🔇 Voice connected (muted)';
-    }else if(voiceConnState==='degraded'){
-      text=`🟠 Voice degraded · ${micLabel}`;
-    }else if(voiceConnState==='reconnecting'){
-      text=`🔄 Reconnecting voice… · ${micLabel}`;
-    }else if(voiceConnState==='failed'){
-      text=HAS_TURN?'❌ Voice failed':'❌ Voice failed (needs TURN)';
-    }
+  let text = '';
+  if (micState === 'denied') text = '🚫 Mic denied';
+  else if (micState === 'disabled') text = 'Tap 🎙 for voice';
+  else {
+    const ml = micState === 'enabled' ? 'MIC LIVE' : 'MIC MUTED';
+    if (voiceConnState === 'none') text = `🎙 ${ml}`;
+    else if (voiceConnState === 'connecting') text = `🟡 Connecting… ${ml}`;
+    else if (voiceConnState === 'connected') text = micState === 'enabled' ? '🟢 VOICE LIVE' : '🔇 CONNECTED';
+    else if (voiceConnState === 'degraded') text = `🟠 Degraded · ${ml}`;
+    else if (voiceConnState === 'reconnecting') text = `🔄 Reconnecting…`;
+    else if (voiceConnState === 'failed') text = HAS_TURN ? '❌ Failed' : '❌ Failed (needs TURN)';
   }
-  el.textContent=text;
+  el.textContent = text;
 }
 
-$('#mic').onclick=async()=>{
+$('#mic').onclick = async () => {
   unlockAudio();
-  if(!stream){
-    if(!window.isSecureContext){
-      micState='denied';
+  if (!stream) {
+    if (!window.isSecureContext) {
+      micState = 'denied';
       toast('Voice requires HTTPS or localhost.');
       return updateVoiceUI();
     }
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-      micState='denied';
-      toast('Browser does not support microphone access.');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      micState = 'denied';
+      toast('Browser does not support microphone.');
       return updateVoiceUI();
     }
-    try{
-      stream=await navigator.mediaDevices.getUserMedia({
-        audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
-      micState='enabled';
-      watch(stream,S?.you);
-      peers.forEach(p=>{
-        if(p.tx?.sender&&stream.getAudioTracks().length){
+      micState = 'enabled';
+      watch(stream, S?.you);
+      peers.forEach(p => {
+        if (p.tx?.sender && stream.getAudioTracks().length) {
           p.tx.sender.replaceTrack(stream.getAudioTracks()[0]);
         }
       });
       syncPeers();
-      toast('Microphone connected!');
-    }catch(e){
-      micState='denied';
-      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError')toast('Microphone permission denied.');
-      else if(e.name==='NotFoundError')toast('No microphone found.');
+      toast('Microphone connected');
+    } catch (e) {
+      micState = 'denied';
+      if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') toast('Mic permission denied.');
+      else if (e.name === 'NotFoundError') toast('No microphone found.');
       else toast('Could not access microphone.');
     }
-  }else{
-    const nextState=micState==='enabled'?'muted':'enabled';
-    micState=nextState;
-    stream.getAudioTracks().forEach(t=>{t.enabled=(nextState==='enabled');});
-    if(nextState==='muted'){
-      lastSpoke=false;
-      tx({t:'speaking',v:false});
+  } else {
+    const nextState = micState === 'enabled' ? 'muted' : 'enabled';
+    micState = nextState;
+    stream.getAudioTracks().forEach(t => { t.enabled = (nextState === 'enabled'); });
+    if (nextState === 'muted') {
+      lastSpoke = false;
+      tx({ t: 'speaking', v: false });
       talking.delete(S?.you);
-      document.querySelectorAll(`[data-id="${S?.you}"]`).forEach(e=>e.classList.remove('talk'));
+      document.querySelectorAll(`[data-id="${S?.you}"]`).forEach(e => e.classList.remove('talk'));
     }
   }
   updateVoiceUI();
 };
 
-function syncPeers(){
-  if(!S)return;
-  const ids=S.players.filter(p=>p.connected&&p.id!==S.you).map(p=>p.id);
-  // Clean up peers who left
-  [...peers.keys()].filter(id=>!ids.includes(id)).forEach(closePeer);
-  // Deterministic connection establishment: lexicographically lower ID initiates offer
-  ids.forEach(id=>{
-    if(!peers.has(id)&&S.you<id){
-      makePeer(id,true);
-    }
+function syncPeers() {
+  if (!S) return;
+  const ids = S.players.filter(p => p.connected && p.id !== S.you).map(p => p.id);
+  [...peers.keys()].filter(id => !ids.includes(id)).forEach(closePeer);
+  ids.forEach(id => {
+    if (!peers.has(id) && S.you < id) makePeer(id, true);
   });
   recomputeVoiceConnState();
 }
 
-function makePeer(id,init){
-  const pc=new RTCPeerConnection({iceServers:ICE_SERVERS});
-  const t=pc.addTransceiver('audio',{direction:'sendrecv'});
-  if(stream&&stream.getAudioTracks().length){
+function makePeer(id, init) {
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const t = pc.addTransceiver('audio', { direction: 'sendrecv' });
+  if (stream && stream.getAudioTracks().length) {
     t.sender.replaceTrack(stream.getAudioTracks()[0]);
   }
-  const p={pc,tx:t,init,disconnectTimer:null};
-  peers.set(id,p);
+  const p = { pc, tx: t, init, disconnectTimer: null };
+  peers.set(id, p);
 
-  pc.onicecandidate=e=>{
-    if(e.candidate)tx({t:'rtc',to:id,data:{ice:e.candidate}});
+  pc.onicecandidate = e => {
+    if (e.candidate) tx({ t: 'rtc', to: id, data: { ice: e.candidate } });
   };
 
-  pc.ontrack=e=>{
-    let a=document.getElementById('a-'+id);
-    if(!a){
-      a=document.createElement('audio');
-      a.id='a-'+id;
-      a.autoplay=true;
-      a.playsInline=true;
+  pc.ontrack = e => {
+    let a = document.getElementById('a-' + id);
+    if (!a) {
+      a = document.createElement('audio');
+      a.id = 'a-' + id;
+      a.autoplay = true;
+      a.playsInline = true;
       document.body.append(a);
     }
-    a.srcObject=e.streams[0];
-    a.play().catch(err=>console.warn('Autoplay prevented:',id,err));
-    watch(e.streams[0],id);
+    a.srcObject = e.streams[0];
+    a.play().catch(err => console.warn('Autoplay prevented:', id, err));
+    watch(e.streams[0], id);
   };
 
-  pc.onconnectionstatechange=()=>{
-    const st=pc.connectionState;
-    if(st==='connected'){
+  pc.onconnectionstatechange = () => {
+    const st = pc.connectionState;
+    if (st === 'connected') {
       clearTimeout(p.disconnectTimer);
-      p.disconnectTimer=null;
+      p.disconnectTimer = null;
       recomputeVoiceConnState();
-    }else if(st==='disconnected'){
+    } else if (st === 'disconnected') {
       recomputeVoiceConnState();
-      // Allow transient network recovery for 5 seconds
       clearTimeout(p.disconnectTimer);
-      p.disconnectTimer=setTimeout(()=>{
-        if(pc.connectionState==='disconnected'){
-          attemptPeerRecovery(id,p);
-        }
-      },5000);
-    }else if(st==='failed'){
+      p.disconnectTimer = setTimeout(() => {
+        if (pc.connectionState === 'disconnected') attemptPeerRecovery(id, p);
+      }, 5000);
+    } else if (st === 'failed') {
       clearTimeout(p.disconnectTimer);
-      p.disconnectTimer=null;
-      attemptPeerRecovery(id,p);
-    }else{
+      p.disconnectTimer = null;
+      attemptPeerRecovery(id, p);
+    } else {
       recomputeVoiceConnState();
     }
   };
 
-  if(init){
-    pc.createOffer({offerToReceiveAudio:true})
-      .then(o=>pc.setLocalDescription(o))
-      .then(()=>tx({t:'rtc',to:id,data:{sdp:pc.localDescription}}))
-      .catch(e=>console.warn('RTC offer error:',e));
+  if (init) {
+    pc.createOffer({ offerToReceiveAudio: true })
+      .then(o => pc.setLocalDescription(o))
+      .then(() => tx({ t: 'rtc', to: id, data: { sdp: pc.localDescription } }))
+      .catch(e => console.warn('RTC offer error:', e));
   }
   recomputeVoiceConnState();
   return p;
 }
 
-function attemptPeerRecovery(id,p){
-  if(p.pc.restartIce&&p.init){
-    voiceConnState='reconnecting';
+function attemptPeerRecovery(id, p) {
+  if (p.pc.restartIce && p.init) {
+    voiceConnState = 'reconnecting';
     updateVoiceUI();
-    try{
+    try {
       p.pc.restartIce();
-      p.pc.createOffer({iceRestart:true})
-        .then(o=>p.pc.setLocalDescription(o))
-        .then(()=>tx({t:'rtc',to:id,data:{sdp:p.pc.localDescription}}))
-        .catch(()=>{
-          closePeer(id);
-          setTimeout(syncPeers,1000);
-        });
+      p.pc.createOffer({ iceRestart: true })
+        .then(o => p.pc.setLocalDescription(o))
+        .then(() => tx({ t: 'rtc', to: id, data: { sdp: p.pc.localDescription } }))
+        .catch(() => { closePeer(id); setTimeout(syncPeers, 1000); });
       return;
-    }catch{}
+    } catch {}
   }
   closePeer(id);
-  setTimeout(syncPeers,1200);
+  setTimeout(syncPeers, 1200);
 }
 
-async function onRtc(m){
-  try{
-    let p=peers.get(m.from);
-    if(m.data.sdp){
-      if(m.data.sdp.type==='offer'){
-        if(!p||p.pc.signalingState==='closed'){
-          p=makePeer(m.from,false);
-        }
+async function onRtc(m) {
+  try {
+    let p = peers.get(m.from);
+    if (m.data.sdp) {
+      if (m.data.sdp.type === 'offer') {
+        if (!p || p.pc.signalingState === 'closed') p = makePeer(m.from, false);
         await p.pc.setRemoteDescription(new RTCSessionDescription(m.data.sdp));
-        const q=iceQueues.get(m.from)||[];
-        while(q.length){
-          const c=q.shift();
-          await p.pc.addIceCandidate(new RTCIceCandidate(c)).catch(()=>{});
-        }
-        const ans=await p.pc.createAnswer();
+        const q = iceQueues.get(m.from) || [];
+        while (q.length) { const c = q.shift(); await p.pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}); }
+        const ans = await p.pc.createAnswer();
         await p.pc.setLocalDescription(ans);
-        tx({t:'rtc',to:m.from,data:{sdp:p.pc.localDescription}});
-      }else if(m.data.sdp.type==='answer'&&p){
+        tx({ t: 'rtc', to: m.from, data: { sdp: p.pc.localDescription } });
+      } else if (m.data.sdp.type === 'answer' && p) {
         await p.pc.setRemoteDescription(new RTCSessionDescription(m.data.sdp));
-        const q=iceQueues.get(m.from)||[];
-        while(q.length){
-          const c=q.shift();
-          await p.pc.addIceCandidate(new RTCIceCandidate(c)).catch(()=>{});
-        }
+        const q = iceQueues.get(m.from) || [];
+        while (q.length) { const c = q.shift(); await p.pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}); }
       }
-    }else if(m.data.ice){
-      if(p&&p.pc.remoteDescription){
-        await p.pc.addIceCandidate(new RTCIceCandidate(m.data.ice)).catch(()=>{});
-      }else{
-        if(!iceQueues.has(m.from))iceQueues.set(m.from,[]);
+    } else if (m.data.ice) {
+      if (p && p.pc.remoteDescription) {
+        await p.pc.addIceCandidate(new RTCIceCandidate(m.data.ice)).catch(() => {});
+      } else {
+        if (!iceQueues.has(m.from)) iceQueues.set(m.from, []);
         iceQueues.get(m.from).push(m.data.ice);
       }
     }
-  }catch(e){
-    console.warn('RTC error:',e);
-  }
+  } catch (e) { console.warn('RTC error:', e); }
 }
 
-function closePeer(id){
-  const p=peers.get(id);
-  if(p){
+function closePeer(id) {
+  const p = peers.get(id);
+  if (p) {
     clearTimeout(p.disconnectTimer);
-    try{p.pc.close()}catch{};
+    try { p.pc.close() } catch {};
     peers.delete(id);
   }
   iceQueues.delete(id);
-  const a=document.getElementById('a-'+id);
-  if(a){
-    a.srcObject=null;
-    a.remove();
-  }
+  const a = document.getElementById('a-' + id);
+  if (a) { a.srcObject = null; a.remove(); }
   talking.delete(id);
-  document.querySelectorAll(`[data-id="${id}"]`).forEach(e=>e.classList.remove('talk'));
-  const m=meters.get(id);
-  if(m){
-    try{m.source.disconnect()}catch{};
-    try{m.analyser.disconnect()}catch{};
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(e => e.classList.remove('talk'));
+  const m = meters.get(id);
+  if (m) {
+    try { m.source.disconnect() } catch {};
+    try { m.analyser.disconnect() } catch {};
     meters.delete(id);
   }
   recomputeVoiceConnState();
 }
 
-function closeAllPeers(){
-  [...peers.keys()].forEach(closePeer);
-}
+function closeAllPeers() { [...peers.keys()].forEach(closePeer); }
 
-// ---------- speaking indicator (analyser + server relay) ----------
-const meters=new Map(); // id -> { source, analyser }
-let lastSpoke=false;
+// ═══ SPEAKING DETECTION ═══
+const meters = new Map();
+let lastSpoke = false;
 
-function watch(st,id){
-  if(!id)return;
-  if(meters.has(id)){
-    const old=meters.get(id);
-    try{old.source.disconnect()}catch{};
-    try{old.analyser.disconnect()}catch{};
+function watch(st, id) {
+  if (!id) return;
+  if (meters.has(id)) {
+    const old = meters.get(id);
+    try { old.source.disconnect() } catch {};
+    try { old.analyser.disconnect() } catch {};
     meters.delete(id);
   }
-  try{
-    ac=ac||new (window.AudioContext||window.webkitAudioContext)();
-    const source=ac.createMediaStreamSource(st);
-    const analyser=ac.createAnalyser();
-    analyser.fftSize=256;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const source = ac.createMediaStreamSource(st);
+    const analyser = ac.createAnalyser();
+    analyser.fftSize = 256;
     source.connect(analyser);
-    meters.set(id,{source,analyser});
-  }catch(e){
-    console.warn('Analyser setup error:',e);
-  }
+    meters.set(id, { source, analyser });
+  } catch (e) { console.warn('Analyser error:', e); }
 }
 
-let speakingInterval=null;
-function startSpeakingDetection(){
+let speakingInterval = null;
+function startSpeakingDetection() {
   clearInterval(speakingInterval);
-  speakingInterval=setInterval(()=>{
-    const buf=new Uint8Array(128);
-    meters.forEach((m,id)=>{
+  speakingInterval = setInterval(() => {
+    const buf = new Uint8Array(128);
+    meters.forEach((m, id) => {
       m.analyser.getByteTimeDomainData(buf);
-      let maxVal=0;
-      for(let i=0;i<buf.length;i++){
-        const v=Math.abs(buf[i]-128);
-        if(v>maxVal)maxVal=v;
+      let maxVal = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const v = Math.abs(buf[i] - 128);
+        if (v > maxVal) maxVal = v;
       }
-      const isSpeaking=maxVal>14&&(id!==S?.you||micState==='enabled');
-      if(id===S?.you&&isSpeaking!==lastSpoke){
-        lastSpoke=isSpeaking;
-        tx({t:'speaking',v:isSpeaking});
+      const isSpeaking = maxVal > 14 && (id !== S?.you || micState === 'enabled');
+      if (id === S?.you && isSpeaking !== lastSpoke) {
+        lastSpoke = isSpeaking;
+        tx({ t: 'speaking', v: isSpeaking });
       }
-      if(isSpeaking!==talking.has(id)){
-        if(isSpeaking)talking.add(id);else talking.delete(id);
-        document.querySelectorAll(`[data-id="${id}"]`).forEach(e=>e.classList.toggle('talk',isSpeaking));
+      if (isSpeaking !== talking.has(id)) {
+        if (isSpeaking) talking.add(id); else talking.delete(id);
+        document.querySelectorAll(`[data-id="${id}"]`).forEach(e => e.classList.toggle('talk', isSpeaking));
       }
     });
-  },120);
+  }, 120);
 }
 startSpeakingDetection();
 
-// ---------- in-game chat system ----------
-let chatOpen=false,unreadChat=0;
+// ═══ CHAT ═══
+let chatOpen = false, unreadChat = 0;
 
-function toggleChat(force){
-  chatOpen=typeof force==='boolean'?force:!chatOpen;
-  const p=$('#chat-panel');
-  if(!p)return;
-  p.classList.toggle('open',chatOpen);
-  p.setAttribute('aria-hidden',String(!chatOpen));
-  if(chatOpen){
-    unreadChat=0;
+function toggleChat(force) {
+  chatOpen = typeof force === 'boolean' ? force : !chatOpen;
+  const p = $('#chat-panel');
+  if (!p) return;
+  p.classList.toggle('open', chatOpen);
+  p.setAttribute('aria-hidden', String(!chatOpen));
+  if (chatOpen) {
+    unreadChat = 0;
     updateChatBadge();
-    setTimeout(()=>$('#chat-in')?.focus(),100);
-    const ms=$('#chat-msgs');if(ms)ms.scrollTop=ms.scrollHeight;
+    setTimeout(() => $('#chat-in')?.focus(), 100);
+    const ms = $('#chat-msgs'); if (ms) ms.scrollTop = ms.scrollHeight;
   }
 }
 
-function updateChatBadge(){
-  const b=$('#cbadge');if(!b)return;
-  if(unreadChat>0){b.textContent=unreadChat>99?'99+':unreadChat;b.style.display='inline-block'}
-  else{b.style.display='none'}
+function updateChatBadge() {
+  const b = $('#cbadge'); if (!b) return;
+  if (unreadChat > 0) { b.textContent = unreadChat > 99 ? '99+' : unreadChat; b.style.display = 'inline-block' }
+  else { b.style.display = 'none' }
 }
 
-function addChatMessage(msg){
-  const ms=$('#chat-msgs');if(!ms)return;
-  const empty=ms.querySelector('.chat-empty');if(empty)empty.remove();
-  const isMe=msg.id===S?.you;
-  const d=new Date(msg.time||Date.now());
-  const timeStr=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  const div=document.createElement('div');
-  div.className=`cmsg ${isMe?'me':''}`;
-  div.innerHTML=`<div class="cmsg-av">${avatar(msg.seed||0)}</div><div class="cmsg-wrap"><div class="cmsg-meta">${esc(msg.name||'Crew')} · ${timeStr}</div><div class="cmsg-txt">${esc(msg.msg)}</div></div>`;
+function addChatMessage(msg) {
+  const ms = $('#chat-msgs'); if (!ms) return;
+  const empty = ms.querySelector('.chat-empty'); if (empty) empty.remove();
+  const isMe = msg.id === S?.you;
+  const d = new Date(msg.time || Date.now());
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const div = document.createElement('div');
+  div.className = `cmsg ${isMe ? 'me' : ''}`;
+  div.innerHTML = `<div class="cmsg-av">${avatar(msg.seed || 0)}</div><div class="cmsg-wrap"><div class="cmsg-meta">${esc(msg.name || 'Crew')} · ${timeStr}</div><div class="cmsg-txt">${esc(msg.msg)}</div></div>`;
   ms.appendChild(div);
-  ms.scrollTop=ms.scrollHeight;
-  if(!chatOpen){
+  ms.scrollTop = ms.scrollHeight;
+  if (!chatOpen) {
     unreadChat++;
     updateChatBadge();
     sfx.chat();
   }
 }
 
-function sendChat(text){
-  const t=(text||'').trim();
-  if(!t)return;
-  if(!S){toast('Join a room first to chat.');return}
-  tx({t:'chat',msg:t});
+function sendChat(text) {
+  const t = (text || '').trim();
+  if (!t) return;
+  if (!S) { toast('Join a room first.'); return }
+  tx({ t: 'chat', msg: t });
 }
 
-$('#chat-btn').onclick=()=>{sfx.click();toggleChat()};
-$('#chat-close').onclick=()=>{sfx.click();toggleChat(false)};
-$('#chat-form').onsubmit=e=>{
+$('#chat-btn').onclick = () => { sfx.click(); toggleChat() };
+$('#chat-close').onclick = () => { sfx.click(); toggleChat(false) };
+$('#chat-form').onsubmit = e => {
   e.preventDefault();
-  const inp=$('#chat-in'),v=inp.value;
-  if(!v.trim())return;
+  const inp = $('#chat-in'), v = inp.value;
+  if (!v.trim()) return;
   sendChat(v);
-  inp.value='';
+  inp.value = '';
 };
-document.querySelectorAll('.chip').forEach(btn=>{
-  btn.onclick=()=>{
-    sfx.click();
-    sendChat(btn.textContent);
-  };
+document.querySelectorAll('.chip').forEach(btn => {
+  btn.onclick = () => { sfx.click(); sendChat(btn.textContent); };
 });
 
-// ---------- lifecycle ----------
-document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden){
-    if(ac&&ac.state==='suspended')ac.resume();
-    if(!wsConnected&&ws?.readyState!==WebSocket.OPEN)connect(false);
+// ═══ LIFECYCLE ═══
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    if (ac && ac.state === 'suspended') ac.resume();
+    if (!wsConnected && ws?.readyState !== WebSocket.OPEN) connect(false);
   }
 });
 
-window.addEventListener('pagehide',()=>{
-  stream?.getTracks().forEach(t=>t.stop());
+window.addEventListener('pagehide', () => {
+  stream?.getTracks().forEach(t => t.stop());
   closeAllPeers();
 });
 
-window.addEventListener('beforeunload',()=>{
-  stream?.getTracks().forEach(t=>t.stop());
+window.addEventListener('beforeunload', () => {
+  stream?.getTracks().forEach(t => t.stop());
   closeAllPeers();
   clearInterval(timerInterval);
   clearInterval(speakingInterval);
