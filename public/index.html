@@ -1,39 +1,42 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#09090f">
-<meta name="description" content="Imposter: Dead Air — A social-deduction game of silence and suspicion. 4–10 players. One imposter. Find them before it's too late.">
+<meta name="theme-color" content="#07080c">
+<meta name="description" content="BLACKSITE // MOLE HUNT — A tense social-deduction game of cover identities and suspicion. 4–10 players. One mole. Expose them before exfil.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Imposter: Dead Air</title>
+<title>BLACKSITE // MOLE HUNT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-/* ═══ DESIGN TOKENS ═══ */
+/* ═══ DESIGN TOKENS — BLACKSITE DOSSIER THEME ═══ */
 :root {
-  --bg: #09090f;
-  --surface: #111119;
-  --surface2: #1a1a24;
-  --surface3: #22222e;
-  --border: #2a2a38;
-  --border-focus: #3d5afe;
-  --text: #e8e6f0;
-  --text-dim: #7a7890;
-  --text-faint: #4a4860;
+  --bg: #07080c;
+  --surface: #0d0f16;
+  --surface2: #141824;
+  --surface3: #1c2333;
+  --border: #2a3348;
+  --border-focus: #ffb300;
+  --text: #f2ecdd;
+  --text-dim: #a8a294;
+  --text-faint: #5c5a52;
 
-  --signal: #3d5afe;
-  --signal-glow: #3d5afe44;
-  --signal-bright: #6979f8;
-  --danger: #ff3d57;
-  --danger-glow: #ff3d5744;
-  --danger-dim: #a82038;
-  --success: #00e676;
-  --success-dim: #00a854;
-  --warn: #ffab00;
+  --signal: #ffb300;
+  --signal-glow: #ffb30044;
+  --signal-bright: #ffc933;
+  --danger: #ff2d3f;
+  --danger-glow: #ff2d3f55;
+  --danger-dim: #a31220;
+  --success: #2dff8f;
+  --success-dim: #0d9b52;
+  --warn: #ffb300;
+  --mole: #ff2d3f;
+  --agent: #2dff8f;
 
   --mono: 'JetBrains Mono', 'Courier New', monospace;
   --sans: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --display: 'Barlow Condensed', 'Space Grotesk', system-ui, sans-serif;
 
   --safe-b: max(8px, env(safe-area-inset-bottom));
   --safe-t: max(8px, env(safe-area-inset-top));
@@ -49,11 +52,12 @@
 html, body { height: 100%; margin: 0; }
 body {
   background-color: var(--bg);
-  background-image: 
-    radial-gradient(ellipse at 50% 0%, rgba(61,90,254,0.08) 0%, transparent 60%),
-    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 36px 36px, 36px 36px;
+  background-image:
+    radial-gradient(ellipse at 50% -10%, rgba(255,179,0,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 110%, rgba(255,45,63,0.07) 0%, transparent 55%),
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
   color: var(--text);
   font: 400 16px/1.5 var(--sans);
   overflow-x: hidden;
@@ -61,6 +65,13 @@ body {
   -webkit-overflow-scrolling: touch;
   -webkit-font-smoothing: antialiased;
 }
+/* Alarm vignette that intensifies with .alarm-1/2/3 on body */
+#vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2;
+  box-shadow: inset 0 0 120px rgba(0,0,0,0.85); transition: box-shadow .5s; }
+body.alarm-1 #vignette { box-shadow: inset 0 0 120px rgba(0,0,0,0.85), inset 0 0 60px rgba(255,179,0,0.12); }
+body.alarm-2 #vignette { box-shadow: inset 0 0 140px rgba(0,0,0,0.9), inset 0 0 90px rgba(255,45,63,0.22); }
+body.alarm-3 #vignette { box-shadow: inset 0 0 160px rgba(0,0,0,0.95), inset 0 0 120px rgba(255,45,63,0.4); animation: alarm-pulse 1s ease-in-out infinite; }
+@keyframes alarm-pulse { 50% { box-shadow: inset 0 0 160px rgba(0,0,0,0.95), inset 0 0 160px rgba(255,45,63,0.55); } }
 
 /* ═══ ATMOSPHERE: Scanlines + subtle noise ═══ */
 body::before {
@@ -727,23 +738,62 @@ label {
   from { opacity: 0; transform: scale(0.9); }
   50% { transform: scale(1.02); }
 }
+
+/* ═══ BLACKSITE DOSSIER OVERHAUL ═══ */
+h1, h2, h3 { font-family: var(--display); letter-spacing: 0.02em; }
+.phase-label { color: var(--signal); background: rgba(255,179,0,0.08); border-color: rgba(255,179,0,0.25); }
+.phase-label::before { background: var(--signal); }
+.btn { color: #0a0a0a; font-family: var(--display); font-size: 17px; letter-spacing: 0.06em; text-transform: uppercase; }
+.btn.alt { color: var(--text); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em; }
+.btn.danger { background: var(--danger); color: #fff; }
+.hazard { height: 8px; border-radius: 4px; margin: 10px 0;
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 10px, #0a0a0a 10px 20px);
+  border: 1px solid var(--border); opacity: 0.9; }
+.stamp { display: inline-block; font: 700 12px/1 var(--mono); letter-spacing: 0.18em; color: var(--danger);
+  border: 2px solid var(--danger); border-radius: 4px; padding: 6px 10px; transform: rotate(-4deg);
+  text-transform: uppercase; background: rgba(255,45,63,0.06); }
+.stamp.green { color: var(--success); border-color: var(--success); background: rgba(45,255,143,0.06); transform: rotate(3deg); }
+.stamp.amber { color: var(--signal); border-color: var(--signal); background: rgba(255,179,0,0.06); }
+.dossier { position: relative; overflow: hidden; }
+.dossier::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,0.12) 3px 4px); }
+.codename { font: 600 11px/1 var(--mono); letter-spacing: 0.1em; color: var(--signal); }
+.slot { background: linear-gradient(180deg, var(--surface2), var(--surface)); }
+.slot .file-no { font: 500 9px/1 var(--mono); color: var(--text-faint); letter-spacing: 0.12em; }
+.shake { animation: shake 0.45s ease-in-out; }
+@keyframes shake { 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+.glitch { animation: glitch 0.5s steps(2) 2; }
+@keyframes glitch { 25% { transform: translateX(-2px) skewX(2deg); } 50% { transform: translateX(2px); } 75% { transform: translateX(-1px) skewX(-2deg); } }
+.susp-btn { min-height: 30px; font: 600 10px/1 var(--mono); padding: 4px 8px; border-radius: 20px;
+  background: transparent; border: 1px solid var(--border); color: var(--text-faint); letter-spacing: 0.08em; }
+.susp-btn.marked { border-color: var(--danger); color: var(--danger); background: rgba(255,45,63,0.1); }
+.feed { display: flex; flex-direction: column; gap: 6px; font: 500 12px/1.4 var(--mono); }
+.feed div { border-left: 2px solid var(--signal); padding-left: 8px; color: var(--text-dim); }
+.feed div.red { border-color: var(--danger); color: var(--text); }
+.feed div.green { border-color: var(--success); }
+.briefing { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); }
+.briefing-card { max-width: 440px; width: 100%; background: var(--surface); border: 1px solid var(--signal);
+  border-radius: var(--radius-lg); padding: 20px; }
 </style></head><body>
+<div id="vignette"></div>
+<div id="briefing-root"></div>
 <main id="app" aria-live="polite"></main>
 
 <!-- In-game Comms Drawer -->
-<div id="chat-panel" class="chat-drawer" role="region" aria-label="Crew Comms" aria-hidden="true">
+<div id="chat-panel" class="chat-drawer" role="region" aria-label="Field Radio" aria-hidden="true">
   <div class="chat-hdr">
-    <div><h3>COMMS</h3><span class="live-dot"></span></div>
+    <div><h3>FIELD RADIO</h3><span class="live-dot"></span></div>
     <button id="chat-close" class="chat-close" aria-label="Close chat">✕</button>
   </div>
-  <div id="chat-msgs" class="chat-msgs"><div class="chat-empty">No transmissions yet.</div></div>
+  <div id="chat-msgs" class="chat-msgs"><div class="chat-empty">Radio silent. No transmissions yet.</div></div>
   <div class="chat-chips">
-    <button type="button" class="chip">👀 Sus</button>
-    <button type="button" class="chip">Not me</button>
-    <button type="button" class="chip">Who is it?</button>
-    <button type="button" class="chip">Skip vote</button>
+    <button type="button" class="chip">That's sus</button>
+    <button type="button" class="chip">Cover intact</button>
+    <button type="button" class="chip">Who blew cover?</button>
+    <button type="button" class="chip">Hold the vote</button>
     <button type="button" class="chip">Trust me</button>
-    <button type="button" class="chip">GG</button>
+    <button type="button" class="chip">Exfil now</button>
   </div>
   <form id="chat-form" class="chat-bar">
     <input id="chat-in" maxlength="150" placeholder="Type message…" autocomplete="off" enterkeyhint="send">
@@ -753,10 +803,10 @@ label {
 
 <!-- Bottom Utility Bar -->
 <div class="bar">
-  <button id="mic" aria-label="Microphone">🎙</button>
-  <div class="st" id="vst" role="status">Tap 🎙 for voice</div>
-  <button id="chat-btn" aria-label="Crew Comms" style="position:relative">💬<span id="cbadge" class="cbadge" style="display:none">0</span></button>
-  <button id="snd" aria-label="Toggle sound">🔊</button>
+  <button id="mic" aria-label="Microphone">MIC</button>
+  <div class="st" id="vst" role="status">Radio off — tap MIC</div>
+  <button id="chat-btn" aria-label="Field Radio" style="position:relative">RADIO<span id="cbadge" class="cbadge" style="display:none">0</span></button>
+  <button id="snd" aria-label="Toggle sound">SND</button>
 </div>
 
 <script id="app-config">
@@ -904,6 +954,22 @@ const sfx = {
     beep(150, 0.4, 'sawtooth', 0.03);
     setTimeout(() => beep(160, 0.3, 'sawtooth', 0.02), 300);
   },
+  heartbeat: () => {
+    beep(55, 0.22, 'sine', 0.07);
+    setTimeout(() => beep(48, 0.26, 'sine', 0.06), 240);
+  },
+  alarm: () => {
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => beep(880, 0.12, 'square', 0.035), i * 220);
+      setTimeout(() => beep(620, 0.12, 'square', 0.035), i * 220 + 110);
+    }
+    radioNoise(0.15, 0.03, 700);
+  },
+  select: () => { beep(760, 0.05, 'square', 0.03); },
+  stamp: () => {
+    radioNoise(0.06, 0.05, 500);
+    beep(140, 0.25, 'sawtooth', 0.06);
+  },
   verdict: () => {
     radioNoise(0.3, 0.05, 700);
     beep(200, 0.6, 'sawtooth', 0.05);
@@ -914,10 +980,10 @@ const sfx = {
 $('#snd').onclick=()=>{
   soundOn=!soundOn;
   try{localStorage.setItem('imp-snd',soundOn?'1':'0')}catch{}
-  $('#snd').textContent=soundOn?'🔊':'🔇';
+  $('#snd').textContent=soundOn?'SND':'OFF';
   sfx.click();
 };
-$('#snd').textContent=soundOn?'🔊':'🔇';
+$('#snd').textContent=soundOn?'SND':'OFF';
 
 function toast(t){
   document.querySelectorAll('.toast').forEach(e=>e.remove());
@@ -935,8 +1001,8 @@ function showConnBanner(msg){
 }
 function hideConnBanner(){if(connBanner)connBanner.style.display='none'}
 
-// ═══ AVATARS (Original Tactical Radio Operator Insignia) ═══
-const PALETTE = ['#3d5afe','#ff3d57','#00e676','#ffab00','#e040fb','#00bcd4','#ff6e40','#7c4dff'];
+// ═══ AVATARS (Original BLACKSITE Agent File Photos) ═══
+const PALETTE = ['#ffb300','#ff2d3f','#2dff8f','#e040fb','#00e5ff','#ff6e40','#7c8aff','#f2ecdd'];
 function avatar(seed) {
   const c = PALETTE[seed % 8];
   const e = ['#80ffea', '#ffe066', '#ffffff', '#ff80bf'][(seed >> 3) % 4];
@@ -1020,12 +1086,15 @@ const P = id => {
 };
 
 function slot(p, x = '') {
-  return `<div class="slot ${x} ${p.id === S.you ? 'me' : ''} ${p.connected ? '' : 'off'} ${talking.has(p.id) ? 'talk' : ''}" data-id="${p.id}">
+  const fileNo = 'FILE-' + String(p.seed % 900 + 100);
+  return `<div class="slot ${x} ${p.id === S.you ? 'me' : ''} ${p.connected ? '' : 'off'} ${talking.has(p.id) ? 'talk' : ''} ${susp.has(p.id) ? 'spot' : ''}" data-id="${p.id}">
+    <div class="file-no">${fileNo}</div>
     ${avatar(p.seed)}
     <b>${esc(p.name)}</b>
-    ${p.id === S.hostId ? '<span class="host-crown">★</span>' : ''}
-    <span class="tag ${p.ready ? 'ok' : ''}">${!p.connected ? 'OFFLINE' : p.id === S.hostId ? 'HOST' : p.ready ? '● READY' : 'WAITING'}</span>
+    ${p.id === S.hostId ? '<span class="host-crown">★ HANDLER</span>' : ''}
+    <span class="tag ${p.ready ? 'ok' : ''}">${!p.connected ? 'OFFLINE' : p.id === S.hostId ? 'HANDLER' : p.ready ? '● GEARED UP' : 'STANDBY'}</span>
     ${wave}
+    ${S && (S.phase === 'discussion' || S.phase === 'vote' || S.phase === 'revote') && S.game && S.game.roster && S.game.roster.includes(p.id) && p.id !== S.you ? `<button type="button" class="susp-btn ${susp.has(p.id) ? 'marked' : ''}" data-susp="${p.id}">${susp.has(p.id) ? '◉ SUSPECT' : '○ FLAG'}</button>` : ''}
   </div>`;
 }
 
@@ -1101,6 +1170,32 @@ function connect(first) {
 }
 
 const tx = m => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); else toast('Connecting…') };
+// Local suspicion board (client-only, never sent to server)
+const susp = new Set();
+try {
+  const saved = JSON.parse(localStorage.getItem('mole-suspects') || '[]');
+  if (Array.isArray(saved)) saved.forEach(id => susp.add(id));
+} catch {}
+function toggleSusp(id) {
+  if (susp.has(id)) susp.delete(id); else susp.add(id);
+  try { localStorage.setItem('mole-suspects', JSON.stringify([...susp].slice(0, 10))) } catch {}
+  sfx.click();
+  render();
+}
+// Mission event feed (client-side narrative log)
+const feedLog = [];
+function logFeed(text, cls) {
+  feedLog.push({ text, cls: cls || '', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+  while (feedLog.length > 6) feedLog.shift();
+}
+function feedHTML() {
+  if (!feedLog.length) return '';
+  return `<div class="panel"><label style="margin-bottom:8px">Mission log</label><div class="feed">${feedLog.map(e => `<div class="${e.cls}">[${e.time}] ${esc(e.text)}</div>`).join('')}</div></div>`;
+}
+function setAlarm(level) {
+  document.body.classList.remove('alarm-1', 'alarm-2', 'alarm-3');
+  if (level > 0) document.body.classList.add('alarm-' + Math.min(3, level));
+}
 
 // Keep-alive heartbeat
 setInterval(() => {
@@ -1109,15 +1204,36 @@ setInterval(() => {
 
 function onState(prev) {
   hideConnBanner();
+  // Mission log narrative
+  if (!prev || prev.phase !== S.phase) {
+    if (S.phase === 'reveal') logFeed('Cover identities issued. Trust no one.');
+    else if (S.phase === 'clues') logFeed('Dead-drop window open. Transmit one word each.');
+    else if (S.phase === 'discussion') logFeed('Interrogation started. Watch for slips.', 'red');
+    else if (S.phase === 'vote') { logFeed('Exposure vote live. Name the mole.', 'red'); setAlarm(2); }
+    else if (S.phase === 'defense') logFeed('Vote deadlocked. Suspects may speak.', 'red');
+    else if (S.phase === 'revote') logFeed('Second ballot. One mistake ends it.', 'red');
+    else if (S.phase === 'guess') logFeed('Compromised asset is guessing the cipher.', 'red');
+    else if (S.phase === 'result') {
+      const cw = S.result && S.result.winner === 'crew';
+      logFeed(cw ? 'Mole exposed. Site secure.' : 'Mole exfiltrated. Site burned.', cw ? 'green' : 'red');
+      setAlarm(cw ? 0 : 3);
+    } else if (S.phase === 'lobby') setAlarm(0);
+  }
+  if (prev && S.game && prev.game && S.game.clues.length > prev.game.clues.length) {
+    const c = S.game.clues[S.game.clues.length - 1];
+    logFeed(`${P(c.pid).name} dropped a clue.`);
+  }
   // Phase-specific audio
   if (!prev || prev.phase !== S.phase) {
     const phase = S.phase;
     if (phase === 'reveal') sfx.reveal();
-    else if (phase === 'vote' || phase === 'voting') sfx.tension();
+    else if (phase === 'vote' || phase === 'voting') { sfx.alarm(); setAlarm(2); }
+    else if (phase === 'revote' || phase === 'tie_revote') sfx.alarm();
     else if (phase === 'verdict') sfx.verdict();
     else if (phase === 'result' || phase === 'results') {
+      sfx.stamp();
       const isWin = S.result && ((S.result.winner === 'impostor') === (S.result.impostor === S.you));
-      isWin ? sfx.win() : sfx.lose();
+      setTimeout(() => { isWin ? sfx.win() : sfx.lose(); }, 250);
     } else sfx.click();
   }
   if (prev && S.players.length > prev.players.length) sfx.join();
@@ -1176,22 +1292,31 @@ function home() {
 
   app.innerHTML = `
     <div class="home-hero">
-      <h1>IMPOSTER</h1>
-      <div class="subtitle">DEAD AIR</div>
-      <p class="tagline">One of you is faking it. Find them through clues, discussion, and deduction.</p>
+      <div class="stamp amber">Top secret // Eyes only</div>
+      <div class="gap-sm"></div>
+      <h1>BLACKSITE</h1>
+      <div class="subtitle">Mole hunt protocol</div>
+      <p class="tagline">4–10 agents. One cover phrase. One mole with no briefing. Drop one-word intel, interrogate, and expose them before exfil.</p>
+      <div class="hazard"></div>
+      <div class="panel dossier" style="text-align:left">
+        <label style="margin-bottom:8px">Mission briefing</label>
+        <p class="dim" style="font-size:13px;margin:0 0 6px"><b class="signal-text">1. INFILTRATE</b> — Create or join a site with a 6-letter access code.</p>
+        <p class="dim" style="font-size:13px;margin:0 0 6px"><b class="signal-text">2. DEAD DROP</b> — Each agent transmits exactly one word. Duplicates and the cipher itself are burned.</p>
+        <p class="dim" style="font-size:13px;margin:0"><b class="signal-text">3. EXPOSE</b> — Interrogate on radio, flag suspects, vote. Catch the mole — but they get one final cipher guess to escape.</p>
+      </div>
     </div>
     ${reconnectPanel}
-    <div class="panel">
-      <label for="nm">Callsign</label>
-      <input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text" placeholder="Enter your name">
+    <div class="panel dossier">
+      <label for="nm">Agent codename</label>
+      <input id="nm" maxlength="16" autocomplete="nickname" enterkeyhint="next" inputmode="text" placeholder="e.g. NIGHTJAR">
       <div class="gap-sm"></div>
-      <button class="btn" id="mk">Create Room</button>
+      <button class="btn" id="mk">Open blacksite</button>
     </div>
     <div class="panel">
-      <label for="cd">Room Code</label>
+      <label for="cd">Site access code</label>
       <input id="cd" maxlength="6" autocapitalize="characters" autocomplete="off" enterkeyhint="go" inputmode="text" style="text-transform:uppercase;font-family:var(--mono);letter-spacing:0.15em" placeholder="XXXXXX">
       <div class="gap-sm"></div>
-      <button class="btn alt" id="jn">Join Room</button>
+      <button class="btn alt" id="jn">Infiltrate site</button>
     </div>`;
 
   const cl = $('#cl-session');
@@ -1209,14 +1334,14 @@ function lobby() {
   const others = S.players.filter(p => p.id !== S.hostId && !p.spectator);
   const ok = n >= 4 && others.every(p => p.ready);
 
-  let startLabel = 'START GAME';
+  let startLabel = 'BEGIN OPERATION';
   if (n < 4) startLabel = `NEED ${4 - n} MORE`;
   else if (!ok) startLabel = 'WAITING FOR READY';
 
   return `
     <div class="hdr">
       <div class="hdr-left">
-        <div class="phase-label">LOBBY</div>
+        <div class="phase-label">BLACKSITE STAGING</div>
         <h2>ROOM</h2>
       </div>
       <button class="btn alt" id="lv" style="width:auto;flex:0;font-size:13px;min-height:40px;padding:0 14px">Leave</button>
@@ -1253,24 +1378,24 @@ function reveal() {
   const imp = S.secret && S.secret.impostor;
   return `
     <div class="hdr">
-      <div class="phase-label">ROLE REVEAL</div>
+      <div class="phase-label">COVER IDENTITY</div>
     </div>
     <div class="reveal-card ${imp ? 'imp' : 'crew'}">
       <div>
         ${imp
-          ? `<p class="dim" style="font:500 11px/1 var(--mono);letter-spacing:0.1em;margin-bottom:12px">YOUR ROLE</p>
-             <div class="secret-word">YOU ARE THE IMPOSTER</div>
+          ? `<p class="dim" style="font:500 11px/1 var(--mono);letter-spacing:0.1em;margin-bottom:12px">YOUR COVER</p>
+             <div class="secret-word">YOU ARE THE MOLE</div>
              <p style="margin:12px 0 0;font-size:14px;color:var(--text-dim)">You don't know the secret word. Blend in.</p>
              <div class="gap-sm"></div>
              <p class="dim" style="font:500 12px/1 var(--mono)">CATEGORY: <b style="color:var(--danger)">${esc(S.game.category)}</b></p>`
-          : `<p class="dim" style="font:500 11px/1 var(--mono);letter-spacing:0.1em;margin-bottom:12px">YOUR SECRET WORD</p>
+          : `<p class="dim" style="font:500 11px/1 var(--mono);letter-spacing:0.1em;margin-bottom:12px">YOUR CIPHER PHRASE</p>
              <div class="secret-word">${esc(S.secret.word)}</div>
              <div class="gap-sm"></div>
              <p class="dim" style="font:500 12px/1 var(--mono)">CATEGORY: <b style="color:var(--signal)">${esc(S.game.category)}</b></p>`
         }
       </div>
     </div>
-    <p class="dim text-center" style="font-size:13px;margin-top:14px">Memorize your role. Clues phase starts shortly.</p>`;
+    <p class="dim text-center" style="font-size:13px;margin-top:14px">Memorize your cover. Dead drops open shortly.</p>`;
 }
 
 function clues() {
@@ -1285,7 +1410,7 @@ function clues() {
     turnAction = `<div class="panel" style="text-align:center"><p class="dim">Spectating this round.</p></div>`;
   } else if (isMyTurn) {
     turnAction = `<div class="panel alert" style="text-align:center">
-      <h3 style="color:var(--danger);margin-bottom:8px">YOUR TURN</h3>
+      <h3 style="color:var(--danger);margin-bottom:8px">YOUR DEAD DROP</h3>
       <p class="dim" style="font-size:12px;margin-bottom:12px">Submit exactly one word. No duplicates or secret word.</p>
       <div style="display:flex;gap:8px">
         <input id="clue-in" maxlength="24" placeholder="One-word clue…" autocomplete="off" enterkeyhint="go" style="flex:1">
@@ -1300,7 +1425,7 @@ function clues() {
 
   let roleHint = '';
   if (S.secret && S.secret.impostor) {
-    roleHint = `<p class="dim text-center" style="font-size:12px;color:var(--danger)">You are the imposter · Category: <b>${esc(S.game.category)}</b> · Fake a convincing clue</p>`;
+    roleHint = `<p class="dim text-center" style="font-size:12px;color:var(--danger)">You are the mole · Theater: <b>${esc(S.game.category)}</b> · Plant a convincing word</p>`;
   } else if (S.secret && S.secret.word) {
     roleHint = `<p class="dim text-center" style="font-size:12px">Category: <b>${esc(S.game.category)}</b> · Word: <b class="signal-text">${esc(S.secret.word)}</b></p>`;
   }
@@ -1320,8 +1445,8 @@ function clues() {
   return `
     <div class="hdr">
       <div class="hdr-left">
-        <div class="phase-label">CLUES</div>
-        <h2>SUBMIT CLUES</h2>
+        <div class="phase-label">DEAD DROPS</div>
+        <h2>TRANSMIT INTEL</h2>
       </div>
       <div class="timer" id="tm"></div>
     </div>
@@ -1344,7 +1469,7 @@ function discussion() {
 
   let roleHint = '';
   if (S.secret && S.secret.impostor) {
-    roleHint = `<p class="dim text-center" style="font-size:12px;color:var(--danger)">You are the imposter. Deflect. Deceive. Survive.</p>`;
+    roleHint = `<p class="dim text-center" style="font-size:12px;color:var(--danger)">You are the mole. Deflect. Deceive. Survive exfil.</p>`;
   } else if (S.secret && S.secret.word) {
     roleHint = `<p class="dim text-center" style="font-size:12px">Category: <b>${esc(S.game.category)}</b> · Word: <b class="signal-text">${esc(S.secret.word)}</b></p>`;
   }
@@ -1363,8 +1488,8 @@ function discussion() {
   return `
     <div class="hdr">
       <div class="hdr-left">
-        <div class="phase-label">DISCUSSION</div>
-        <h2>DISCUSS</h2>
+        <div class="phase-label">INTERROGATION</div>
+        <h2>SWEAT THEM</h2>
       </div>
       <div class="timer" id="tm"></div>
     </div>
@@ -1385,12 +1510,12 @@ function voting() {
   return `
     <div class="hdr">
       <div class="hdr-left">
-        <div class="phase-label">VOTE</div>
-        <h2>WHO IS THE IMPOSTER?</h2>
+        <div class="phase-label">EXPOSURE VOTE</div>
+        <h2>NAME THE MOLE</h2>
       </div>
       <div class="timer" id="tm"></div>
     </div>
-    <p class="dim" style="font-size:13px;margin-bottom:12px">Select the player you suspect. Abstaining helps the imposter.</p>
+    <p class="dim" style="font-size:13px;margin-bottom:12px">Select the player you suspect. Abstaining helps the mole.</p>
     <div class="vote-grid">
       ${S.game.roster.filter(id => id !== S.you).map(id =>
         `<button class="slot ${sel === id ? 'pick' : ''} ${talking.has(id) ? ' talk' : ''}" data-v="${id}" ${voted || isSpectator ? 'disabled' : ''}>
@@ -1413,14 +1538,14 @@ function tie_defense() {
   return `
     <div class="hdr">
       <div class="hdr-left">
-        <div class="phase-label">TIE DEFENSE</div>
-        <h2>DEADLOCK</h2>
+        <div class="phase-label">DEADLOCK INTERROGATION</div>
+        <h2>BREAK THE TIE</h2>
       </div>
       <div class="timer" id="tm"></div>
     </div>
     <div class="panel alert text-center">
       <h3 style="color:var(--danger);margin-bottom:8px">VOTE TIED: ${esc(tiedNames)}</h3>
-      <p class="dim" style="font-size:13px">Tied players have 15 seconds to defend themselves. Revote begins shortly.</p>
+      <p class="dim" style="font-size:13px">Flagged agents have 15 seconds under the lamp. Second ballot starts next.</p>
     </div>
     <div class="slots" style="margin-top:14px">
       ${S.game.tiedCandidates.map(id => slot(P(id), 'spot')).join('')}
@@ -1450,7 +1575,7 @@ function tie_revote() {
         </button>`
       ).join('')}
     </div>
-    ${!isSpectator && !isTied
+    ${!isSpectator && eligibleTargets.length
       ? `<div class="gap-md"></div>
          <button class="btn danger" id="cast-revote" ${revoted || !sel ? 'disabled' : ''}>${revoted ? '● REVOTE LOCKED' : 'LOCK REVOTE'}</button>`
       : ''}
@@ -1480,14 +1605,14 @@ function final_guess() {
   return `
     <div class="hdr">
       <div class="hdr-left">
-        <div class="phase-label">FINAL GUESS</div>
-        <h2>${isImposter ? 'YOUR LAST CHANCE' : 'THE IMPOSTER GUESSES'}</h2>
+        <div class="phase-label">LAST CIPHER</div>
+        <h2>${isImposter ? 'YOUR LAST CHANCE' : 'THE MOLE GUESSES'}</h2>
       </div>
       <div class="timer" id="tm"></div>
     </div>
     ${isImposter
       ? `<div class="panel alert text-center">
-          <h3 style="color:var(--danger);margin-bottom:8px">YOU WERE CAUGHT</h3>
+          <h3 style="color:var(--danger);margin-bottom:8px">COVER BLOWN</h3>
           <p class="dim" style="font-size:13px;margin-bottom:14px">Category: <b class="signal-text">${esc(S.game.category)}</b>. Guess the word to steal victory.</p>
           <div style="display:flex;gap:8px">
             <input id="guess-in" maxlength="30" placeholder="Type the secret word…" autocomplete="off" enterkeyhint="go" style="flex:1">
@@ -1496,8 +1621,8 @@ function final_guess() {
           <p class="faint" style="font-size:11px;margin-top:10px;font-family:var(--mono)">One attempt. Plurals and compounds accepted.</p>
         </div>`
       : `<div class="panel highlight text-center">
-          <h3 class="signal-text">THE IMPOSTER IS GUESSING</h3>
-          <p class="dim" style="margin-top:8px;font-size:13px">30 seconds to guess the word. If wrong — crew wins.</p>
+          <h3 class="signal-text">THE MOLE IS GUESSING</h3>
+          <p class="dim" style="margin-top:8px;font-size:13px">30 seconds to crack the cipher. If wrong — agents win.</p>
         </div>`
     }`;
 }
@@ -1511,14 +1636,14 @@ function results() {
   let guessInfo = '';
   if (r.finalGuess && r.finalGuess.attempted) {
     guessInfo = `<div class="panel text-center">
-      <p class="dim" style="margin-bottom:4px;font-size:12px">Imposter guessed: <b class="mono">"${esc(r.finalGuess.word)}"</b></p>
+      <p class="dim" style="margin-bottom:4px;font-size:12px">Mole guessed: <b class="mono">"${esc(r.finalGuess.word)}"</b></p>
       <b style="font:600 13px/1 var(--mono);color:${r.finalGuess.correct ? 'var(--danger)' : 'var(--success)'}">${r.finalGuess.correct ? '✓ CORRECT' : '✗ WRONG'}</b>
     </div>`;
   }
 
   return `
     <div class="result-banner ${crewWin ? 'crew-win' : 'imp-win'}">
-      <h1 style="color:${crewWin ? 'var(--success)' : 'var(--danger)'}">${crewWin ? 'CREW WINS' : 'IMPOSTER WINS'}</h1>
+      <h1 style="color:${crewWin ? 'var(--success)' : 'var(--danger)'}">${crewWin ? 'SITE SECURE' : 'MOLE EXFILTRATED'}</h1>
       <p class="${won ? 'tally' : 'dim'}" style="font-size:14px">${won ? 'You won this round.' : 'Better luck next time.'}</p>
       <p class="dim" style="font-size:13px;margin-top:8px">${esc(r.text)}</p>
     </div>
@@ -1528,17 +1653,17 @@ function results() {
         ${avatar(P(id).seed)}
         <b>${esc(P(id).name)}</b>
         <span class="tally">${r.tally[id] || 0} votes</span>
-        <span class="tag">${id === r.impostor ? '🔴 IMPOSTER' : 'CREW'}${r.votes[id] ? ' · voted ' + esc(P(r.votes[id]).name) : ''}</span>
+        <span class="tag">${id === r.impostor ? '◉ MOLE' : 'AGENT'}${r.votes[id] ? ' · voted ' + esc(P(r.votes[id]).name) : ''}</span>
       </div>`).join('')}
     </div>
     <div class="panel text-center" style="margin-top:14px">
-      <p class="faint" style="font:500 11px/1 var(--mono);letter-spacing:0.06em;margin-bottom:6px">SECRET WORD</p>
+      <p class="faint" style="font:500 11px/1 var(--mono);letter-spacing:0.06em;margin-bottom:6px">EXPOSED CIPHER</p>
       <div class="result-word">${esc(r.word)}</div>
     </div>
     ${isHost
       ? `<div class="btn-row">
-          <button class="btn success" id="ag">▶ Play Again</button>
-          <button class="btn alt" id="nx">Back to Lobby</button>
+          <button class="btn success" id="ag">▶ Next operation</button>
+          <button class="btn alt" id="nx">Back to staging</button>
         </div>`
       : '<p class="dim text-center" style="margin-top:14px;font-size:13px">Waiting for host…</p>'
     }`;
@@ -1550,8 +1675,8 @@ function bind() {
   on('#lv', () => { tx({ t: 'leave' }); try { localStorage.removeItem('imp-session') } catch {} me = null; S = null; closeAllPeers(); render() });
   on('#cp', () => {
     const text = S.code;
-    if (navigator.share) { navigator.share({ title: 'Join my Imposter game!', text: `Join my game: ${text}` }).catch(() => {}) }
-    else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast('Room code copied!'), () => toast('Press and hold the code to copy.')) }
+    if (navigator.share) { navigator.share({ title: 'Infiltrate my blacksite!', text: `Infiltrate site: ${text}` }).catch(() => {}) }
+    else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast('Access code copied!'), () => toast('Press and hold the code to copy.')) }
     else { toast('Press and hold the code to copy.') }
   });
   on('#rd', () => tx({ t: 'ready', v: !P(S.you).ready }));
@@ -1579,12 +1704,15 @@ function bind() {
   on('#rd-disc', () => tx({ t: 'ready_discuss', v: !P(S.you).discussReady, roundId: S?.roundId }));
 
   // Voting
-  document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { if (!S.game.voted.includes(S.you)) { sel = b.dataset.v; render() } });
+  document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { if (!S.game.voted.includes(S.you)) { sel = b.dataset.v; sfx.select(); render() } });
   on('#cast', () => { tx({ t: 'vote', target: sel, roundId: S?.roundId }); sfx.vote() });
 
   // Revoting
-  document.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { if (!S.game.revoted.includes(S.you)) { sel = b.dataset.rv; render() } });
+  document.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { if (!S.game.revoted.includes(S.you)) { sel = b.dataset.rv; sfx.select(); render() } });
   on('#cast-revote', () => { tx({ t: 'revote', target: sel, roundId: S?.roundId }); sfx.vote() });
+
+  // Local suspicion board (click FLAG without triggering vote select)
+  document.querySelectorAll('[data-susp]').forEach(b => b.onclick = e => { e.stopPropagation(); toggleSusp(b.dataset.susp) });
 
   // Final guess
   const guessSub = $('#guess-sub');
@@ -1602,7 +1730,7 @@ function bind() {
   }
 }
 
-// ═══ TIMER ═══
+// ═══ TIMER (with alarm escalation) ═══
 let timerInterval = null;
 function startTimer() {
   clearInterval(timerInterval);
@@ -1612,6 +1740,10 @@ function startTimer() {
       const left = Math.max(0, Math.ceil((S.deadline - Date.now()) / 1000));
       t.textContent = left + 's';
       t.classList.toggle('urgent', left <= 10);
+      if (S.phase === 'vote' || S.phase === 'revote' || S.phase === 'guess' || S.phase === 'defense') {
+        if (left <= 5) setAlarm(3);
+        else if (left <= 10) setAlarm(2);
+      }
     }
   }, 250);
 }
@@ -1645,19 +1777,19 @@ function updateVoiceUI() {
   if (!el || !btn) return;
 
   btn.classList.toggle('on', micState === 'enabled');
-  btn.textContent = micState === 'enabled' ? '🎙' : (micState === 'muted' ? '🔇' : '🎙');
+  btn.textContent = micState === 'enabled' ? 'MIC' : (micState === 'muted' ? 'MUT' : 'MIC');
 
   let text = '';
-  if (micState === 'denied') text = '🚫 Mic denied';
-  else if (micState === 'disabled') text = 'Tap 🎙 for voice';
+  if (micState === 'denied') text = 'X Mic denied';
+  else if (micState === 'disabled') text = 'Radio off — tap MIC';
   else {
     const ml = micState === 'enabled' ? 'MIC LIVE' : 'MIC MUTED';
-    if (voiceConnState === 'none') text = `🎙 ${ml}`;
-    else if (voiceConnState === 'connecting') text = `🟡 Connecting… ${ml}`;
-    else if (voiceConnState === 'connected') text = micState === 'enabled' ? '🟢 VOICE LIVE' : '🔇 CONNECTED';
-    else if (voiceConnState === 'degraded') text = `🟠 Degraded · ${ml}`;
-    else if (voiceConnState === 'reconnecting') text = `🔄 Reconnecting…`;
-    else if (voiceConnState === 'failed') text = HAS_TURN ? '❌ Failed' : '❌ Failed (needs TURN)';
+    if (voiceConnState === 'none') text = `RADIO ${ml}`;
+    else if (voiceConnState === 'connecting') text = `LINKING… ${ml}`;
+    else if (voiceConnState === 'connected') text = micState === 'enabled' ? 'LINE SECURE' : 'MUTED · LINKED';
+    else if (voiceConnState === 'degraded') text = `SIGNAL WEAK · ${ml}`;
+    else if (voiceConnState === 'reconnecting') text = `RE-LINKING…`;
+    else if (voiceConnState === 'failed') text = HAS_TURN ? 'LINK FAILED' : 'LINK FAILED (RELAY NEEDED)';
   }
   el.textContent = text;
 }
