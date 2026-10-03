@@ -2,6 +2,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const { WebSocketServer } = require('ws');
 const G = require('./game.js');
+const SV = require('./salvage.js');
 const { normalize } = require('./scripts/validate-words.js');
 
 // ─── Configuration ───
@@ -188,10 +189,37 @@ wss.on('connection', ws => {
 
       if (m.t === 'ready' && room.phase === 'lobby') {
         p.ready = !!m.v;
+      } else if (m.t === 'mode' && room.hostId === p.id && room.phase === 'lobby') {
+        const v = String(m.v || 'classic');
+        room.mode = v === 'salvage' ? 'salvage' : 'classic';
       } else if (m.t === 'category' && room.hostId === p.id && room.phase === 'lobby') {
         room.category = String(m.v).slice(0, 30);
       } else if (m.t === 'start') {
-        G.startGame(room, p.id);
+        if (room.mode === 'salvage') SV.beginRun(room);
+        else G.startGame(room, p.id);
+      } else if (m.t === 'haul_open' && room.hostId === p.id) {
+        if (!room.salvage || room.phase !== 'salvage-staging') throw new SV.SalvageErr('Haul is not staging.');
+        SV.openHaul(room);
+      } else if (m.t === 'move' && room.salvage) {
+        if (rid && rid !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        SV.movePlayer(room.salvage, p.id, Number(m.x), Number(m.y));
+        push(room);
+        return;
+      } else if (m.t === 'grab' && room.salvage) {
+        if (rid && rid !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        SV.pickup(room.salvage, p.id, String(m.item));
+      } else if (m.t === 'drop' && room.salvage) {
+        SV.dropItem(room.salvage, p.id, String(m.item));
+      } else if (m.t === 'patch' && room.salvage) {
+        SV.useKit(room.salvage, p.id, String(m.target));
+      } else if (m.t === 'bank' && room.salvage) {
+        SV.deliver(room.salvage, p.id);
+      } else if (m.t === 'quit_haul' && room.hostId === p.id && room.salvage) {
+        SV.quitToLobby(room);
+      } else if (m.t === 'again_haul' && room.hostId === p.id && room.phase === 'salvage-debrief') {
+        SV.quitToLobby(room);
+        room.players.forEach(x => { x.ready = true; });
+        SV.beginRun(room);
       } else if (m.t === 'clue') {
         G.submitClue(room, p.id, m.word, rid);
       } else if (m.t === 'ready_discuss') {
@@ -207,6 +235,9 @@ wss.on('connection', ws => {
       } else if (m.t === 'again') {
         G.playAgain(room, p.id);
       } else if (m.t === 'leave') {
+        if (room.salvage && room.salvage.parts[p.id]) {
+          try { SV.dropAll(room.salvage, p.id); } catch {}
+        }
         G.removePlayer(room, p.id);
         socks.delete(p.id);
         ws.ctx = null;
@@ -274,7 +305,8 @@ wss.on('connection', ws => {
       }
       push(room);
     } catch (e) {
-      fail(ws, e);
+      if (e instanceof SV.SalvageErr) send(ws, { t: 'error', msg: e.message });
+      else fail(ws, e);
     }
   });
 
