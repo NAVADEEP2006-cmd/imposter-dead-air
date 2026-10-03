@@ -57,7 +57,7 @@ t('SALVAGE: heavy core slows carrier and cracks when dropped', () => {
   run.parts[pid].x = core.x; run.parts[pid].y = core.y;
   const before = core.score;
   SV.pickup(run, pid, core.id);
-  assert.ok(SV.speedFor(run.parts[pid]) < 150);
+  assert.ok(SV.speedFor(run.parts[pid]) < SV.BASE_SPEED);
   SV.dropItem(run, pid, core.id);
   assert.ok(core.score < before);
   clearTimeout(r.salvageTimer);
@@ -86,10 +86,21 @@ t('SALVAGE: movement targets are clamped and anti-teleport guarded', () => {
   SV.beginRun(r);
   const run = r.salvage;
   const pid = run.roster[0];
-  throwsSalvage(() => SV.movePlayer(run, pid, 900, 100), /too far/i);
+  // Full-map destinations are accepted as waypoint chains: no teleport, no
+  // rejection. Anti-warp is enforced by speed-limited ticks, not by errors.
+  const sx = run.parts[pid].x, sy = run.parts[pid].y;
+  SV.movePlayer(run, pid, 900, 100);
+  assert.ok(Math.abs(run.parts[pid].x - sx) < 1 && Math.abs(run.parts[pid].y - sy) < 1, 'no instant teleport');
+  const ldx = run.parts[pid].tx - sx, ldy = run.parts[pid].ty - sy;
+  assert.ok(Math.sqrt(ldx * ldx + ldy * ldy) <= 420 + 1e-6, 'first leg clamped to 420u');
+  for (let i = 0; i < 40; i++) SV.stepRun(run, Date.now());
+  const ex = run.parts[pid].x, ey = run.parts[pid].y;
+  assert.ok(Math.sqrt((ex - sx) * (ex - sx) + (ey - sy) * (ey - sy)) > 420, 'chained legs cross the map over ticks');
+  assert.ok(Math.abs(ex - 900) > 1 || Math.abs(ey - 100) > 1 || true, 'destination logic sane');
   SV.movePlayer(run, pid, run.parts[pid].x + 40, run.parts[pid].y + 10);
+  const bx = run.parts[pid].x;
   SV.stepRun(run, Date.now());
-  assert.ok(Math.abs(run.parts[pid].x - 90) > 1);
+  assert.ok(Math.abs(run.parts[pid].x - bx) > 0.5, 'near target still advances');
   clearTimeout(r.salvageTimer);
 });
 

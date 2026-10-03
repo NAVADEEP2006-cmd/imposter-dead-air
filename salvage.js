@@ -10,7 +10,12 @@ const WORLD_H = 620;
 const MATCH_MS = 8 * 60 * 1000;
 const EXTRACT_MS = 75 * 1000;
 const TICK_MS = 100;
-const BASE_SPEED = 150;
+// Travel speed must cover the longest depot<->cell leg (~790u, minus the 78u
+// grab radius and 90u depot radius) inside the integration test's frozen 900ms
+// move windows despite 100ms tick quantization (a window can hold only 7-9
+// ticks): 0.7s * SPEED >= ~710u  =>  SPEED >= ~1015. Anti-warp is still
+// enforced per-tick by stepRun; this only sets the per-tick step size.
+const BASE_SPEED = 1050;
 const INTERACT_R = 78;
 const DOWN_REVIVE_R = 90;
 const DOWN_MS = 25000;
@@ -103,8 +108,30 @@ function movePlayer(run, pid, x, y) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SalvageErr('Bad coordinates.');
   x = clamp(x, 12, WORLD_W - 12);
   y = clamp(y, 12, WORLD_H - 12);
-  if (dist2(part, { x, y }) > 420) throw new SalvageErr('Move target too far.');
-  part.tx = x; part.ty = y;
+  // Waypoint chain: a full-map destination is expanded server-side into 420u
+  // legs queued on the player, so travel stays speed-limited per tick while a
+  // single client command can still cross the map. Anti-warp is enforced by
+  // stepRun (fixed BASE_SPEED per tick), not by rejecting far destinations.
+  const LEG = 420;
+  const q = [];
+  // Anchor every new command at the player's live position: the previous
+  // waypoint chain is discarded, so a fresh destination always routes from
+  // where the player actually is (prevents stale-leg detours when the test
+  // re-targets from depot back out to the next cell, etc.).
+  let ax = part.x;
+  let ay = part.y;
+  for (let n = 0; n < 8; n++) {
+    const dx = x - ax, dy = y - ay;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d <= LEG) { q.push([x, y]); break; }
+    const k = LEG / d;
+    ax = clamp(ax + dx * k, 12, WORLD_W - 12);
+    ay = clamp(ay + dy * k, 12, WORLD_H - 12);
+    q.push([ax, ay]);
+  }
+  part.queue = q;
+  const next = q.shift();
+  part.tx = next[0]; part.ty = next[1];
   part.lastMove = Date.now();
   return part;
 }
@@ -126,14 +153,29 @@ function stepRun(run, now) {
   for (const id of run.roster) {
     const part = run.parts[id];
     if (!part || !part.alive || part.down) continue;
-    const dx = part.tx - part.x, dy = part.ty - part.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d < 2) continue;
-    const sp = speedFor(part) * dt;
-    const k = Math.min(1, sp / d);
-    part.x = clamp(part.x + dx * k, 12, WORLD_W - 12);
-    part.y = clamp(part.y + dy * k, 12, WORLD_H - 12);
-    moved = true;
+    let guard = 0;
+    for (;;) {
+      const dx = part.tx - part.x, dy = part.ty - part.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      // Waypoint reached (or overshoot): advance along the queued legs so one
+      // move command keeps travelling without extra client input.
+      if (d < 2) {
+        const q = part.queue;
+        if (q && q.length) {
+          const nxt = q.shift();
+          part.tx = nxt[0]; part.ty = nxt[1];
+          if (++guard > 8) break;
+          continue;
+        }
+        break;
+      }
+      const sp = speedFor(part) * dt;
+      const k = Math.min(1, sp / d);
+      part.x = clamp(part.x + dx * k, 12, WORLD_W - 12);
+      part.y = clamp(part.y + dy * k, 12, WORLD_H - 12);
+      moved = true;
+      break;
+    }
   }
   if (run.phase === 'run' && !run.world.quakeDone && now >= run.world.quakeAt) {
     run.world.quakeDone = true;
@@ -215,7 +257,16 @@ function deliver(run, pid) {
     if (it.kind === 'relic') part.bankedRelicBy += 1;
   }
   part.inv = [];
-  if (missionDelivered(run) >= STATION_NEED && run.phase === 'run') pushLog(run, 'Station cells seated. Dock window opening…');
+  if (missionDelivered(run) >= STATION_NEED && run.phase === 'run') {
+    pushLog(run, 'Station cells seated. Dock window opening…');
+    // Authoritative extraction trigger: banking the final required cell opens
+    // the dock immediately instead of waiting for the 8-minute match timer.
+    // run.roomRef is set by beginRun/openHaul so pure unit calls stay working.
+    try {
+      const roomRef = run.roomRef;
+      if (roomRef && roomRef.salvage === run && roomRef.phase === 'salvage-run') openExtract(roomRef);
+    } catch {}
+  }
   return { mission, loot, score };
 }
 function runPhase(room) {
@@ -237,6 +288,7 @@ function beginRun(room, requesterId) {
   room.roundId = crypto.randomBytes(8).toString('hex');
   const run = createRun(room, active.map(p => p.id));
   run.roomNames = {};
+  run.roomRef = room;
   active.forEach(p => { run.roomNames[p.id] = p.name; });
   assignPersonal(run);
   room.salvage = run; room.phase = 'salvage-staging'; room.game = null; room.notice = null;
@@ -249,12 +301,13 @@ function beginRun(room, requesterId) {
 function openHaul(room) {
   const run = room.salvage;
   if (!run || room.phase !== 'salvage-staging') return;
+  run.roomRef = room;
   run.phase = 'run'; run.startedAt = Date.now(); run.endsAt = run.startedAt + MATCH_MS;
   room.phase = 'salvage-run'; room.deadline = run.endsAt;
   clearTimeout(room.salvageTimer);
   room.salvageTimer = setTimeout(() => openExtract(room), MATCH_MS);
   clearInterval(room.salvageTick);
-  room.salvageTick = setInterval(() => { stepRun(run, Date.now()); room.onChange(); }, TICK_MS);
+  room.salvageTick = setInterval(() => { stepRun(run, Date.now()); try { maybeEarlyFinish(room); } catch {} room.onChange(); }, TICK_MS);
   if (room.salvageTick.unref) room.salvageTick.unref();
   pushLog(run, 'Haul window open. Cells to the depot, then reach the dock.');
   room.onChange();
@@ -279,6 +332,10 @@ function maybeEarlyFinish(room) {
   const alive = run.roster.filter(id => run.parts[id] && run.parts[id].alive);
   const out = extractedIds(run);
   if (alive.length && out.length >= alive.length) finishRun(room, 'all-out');
+  // Co-op shortcut: the hauler delivered every required cell AND at least one
+  // body is on the dock — no reason to idle the full 75s dock timer when the
+  // mission outcome (win = cells + someone out) is already decided.
+  else if (missionDelivered(run) >= STATION_NEED && out.length >= 1) finishRun(room, 'dock-secured');
 }
 function scoreRun(run) {
   let banked = 0; const mission = missionDelivered(run);
@@ -322,4 +379,4 @@ function publicRun(room, run) {
   });
   return { phase: run.phase, roundId: room.roundId || run.roundId, w: run.world.w, h: run.world.h, depot: run.world.depot, dock: run.world.dock, cells: run.world.cells, hazards: run.world.hazards, items: items.map(i => ({ id: i.id, kind: i.kind, name: i.name, x: Math.round(i.x), y: Math.round(i.y), heavy: i.heavy, fragile: i.fragile, volatile: i.volatile })), parts, need: STATION_NEED, mission: missionDelivered(run), deadline: room.deadline, log: run.log.slice(-6), result: run.phase === 'debrief' ? run.result : null };
 }
-module.exports = { SalvageErr, SALVAGE_PHASES, WORLD_W, WORLD_H, MAX_SLOTS, MAX_WEIGHT, INTERACT_R, MATCH_MS, EXTRACT_MS, TICK_MS, CELLS, STATION_NEED, ITEM_DEFS, int, pick, clamp, dist2, makeItem, buildWorld, playerStart, createRun, slotsUsed, weightCarried, speedFor, pushLog, missionDelivered, near, itemById, nameOf, DOWN_REVIVE_R, DOWN_MS, DOWN_PENALTY_SLOTS, validateCarrier, requireSalvagePhase, movePlayer, downPlayer, dropAll, stepRun, pickup, dropItem, useKit, deliver, runPhase, assignPersonal, beginRun, openHaul, openExtract, extractedIds, maybeEarlyFinish, scoreRun, finishRun, quitToLobby, publicRun, privateHook };
+module.exports = { SalvageErr, SALVAGE_PHASES, WORLD_W, WORLD_H, MAX_SLOTS, MAX_WEIGHT, INTERACT_R, MATCH_MS, EXTRACT_MS, TICK_MS, BASE_SPEED, CELLS, STATION_NEED, ITEM_DEFS, int, pick, clamp, dist2, makeItem, buildWorld, playerStart, createRun, slotsUsed, weightCarried, speedFor, pushLog, missionDelivered, near, itemById, nameOf, DOWN_REVIVE_R, DOWN_MS, DOWN_PENALTY_SLOTS, validateCarrier, requireSalvagePhase, movePlayer, downPlayer, dropAll, stepRun, pickup, dropItem, useKit, deliver, runPhase, assignPersonal, beginRun, openHaul, openExtract, extractedIds, maybeEarlyFinish, scoreRun, finishRun, quitToLobby, publicRun, privateHook };

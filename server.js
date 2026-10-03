@@ -206,6 +206,13 @@ wss.on('connection', ws => {
       } else if (m.t === 'move' && room.salvage) {
         if ((rid || m.haulId) && (rid || m.haulId) !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
         if (!room.salvage.roster.includes(p.id)) throw new SV.SalvageErr('You are not on this haul.');
+        // Belt-and-braces: the physics tick must exist while a run is live, or
+        // clients observe frozen positions (single-point-of-failure guard).
+        if (!room.salvageTick && room.phase !== 'salvage-debrief') {
+          const runRef = room.salvage;
+          room.salvageTick = setInterval(() => { try { SV.stepRun(runRef, Date.now()); } catch {} try { SV.maybeEarlyFinish(room); } catch {} try { room.onChange(); } catch {} }, SV.TICK_MS || 100);
+          if (room.salvageTick.unref) room.salvageTick.unref();
+        }
         SV.movePlayer(room.salvage, p.id, Number(m.x), Number(m.y));
         push(room);
         return;
@@ -225,6 +232,11 @@ wss.on('connection', ws => {
         if ((rid || m.haulId) && (rid || m.haulId) !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
         if (!room.salvage.roster.includes(p.id)) throw new SV.SalvageErr('You are not on this haul.');
         SV.deliver(room.salvage, p.id);
+        // Banking the final cell synchronously advances room phase via
+        // deliver()->openExtract(); broadcast immediately so clients observe
+        // salvage-extract without waiting for the next movement tick.
+        push(room);
+        return;
       } else if (m.t === 'quit_haul' && room.hostId === p.id && room.salvage) {
         SV.quitToLobby(room);
       } else if (m.t === 'again_haul' && room.hostId === p.id && room.phase === 'salvage-debrief') {
@@ -316,7 +328,16 @@ wss.on('connection', ws => {
       }
       push(room);
     } catch (e) {
-      if (e instanceof SV.SalvageErr) send(ws, { t: 'error', msg: e.message });
+      if (e instanceof SV.SalvageErr) {
+        send(ws, { t: 'error', msg: e.message });
+        // Movement/physics failures must not mask the player's live position:
+        // the tick loop advanced them toward the (possibly stale) waypoint, so
+        // rebroadcast authoritative state to keep grab/bank range checks honest.
+        try {
+          const r = ws.ctx && G.rooms.get(ws.ctx.code);
+          if (r && r.salvage) push(r);
+        } catch {}
+      }
       else fail(ws, e);
     }
   });
@@ -365,6 +386,17 @@ function enter(ws, m) {
       p = G.addPlayer(room, m.name);
     }
     if (!room.onChange || room.onChange.toString() === '() => {}') hookRoom(room);
+    // Salvage rooms created before this patch (or via pure unit paths) never
+    // got a live tick loop; ensure the physics interval exists whenever a
+    // salvage run is active so movement actually advances.
+    try {
+      const SV2 = require('./salvage.js');
+      if (room.salvage && String(room.phase).startsWith('salvage-') && room.phase !== 'salvage-debrief' && !room.salvageTick) {
+        const runRef = room.salvage;
+        room.salvageTick = setInterval(() => { try { SV2.stepRun(runRef, Date.now()); } catch {} try { SV2.maybeEarlyFinish(room); } catch {} try { room.onChange(); } catch {} }, SV2.TICK_MS || 100);
+        if (room.salvageTick.unref) room.salvageTick.unref();
+      }
+    } catch {}
   }
 
   // Duplicate connection handling: close old socket deterministically
