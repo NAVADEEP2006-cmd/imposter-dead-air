@@ -112,6 +112,110 @@ t('SALVAGE: extraction win needs cells plus a body on the dock', () => {
   clearTimeout(r.salvageTimer); clearInterval(r.salvageTick);
 });
 
+t('SALVAGE: only the host can start the haul', () => {
+  const { r, ps } = salvageRoom(3);
+  throwsSalvage(() => SV.beginRun(r, ps[1].id), /host/i);
+  SV.beginRun(r, ps[0].id);
+  assert.strictEqual(r.phase, 'salvage-staging');
+  clearTimeout(r.salvageTimer);
+});
+
+t('SALVAGE: single roundId shared by room and run; stale actions rejected', () => {
+  const { r } = salvageRoom(3);
+  SV.beginRun(r);
+  const run = r.salvage;
+  assert.strictEqual(run.roundId, r.roundId);
+  SV.openHaul(r);
+  assert.strictEqual(SV.publicRun(r, run).roundId, r.roundId);
+  throwsSalvage(() => { if ('stale-id' !== r.roundId) throw new SV.SalvageErr('Stale haul action.'); }, /Stale/i);
+  clearTimeout(r.salvageTimer); clearInterval(r.salvageTick);
+});
+
+t('SALVAGE: personal hooks are private until debrief', () => {
+  const { r, ps } = salvageRoom(3);
+  SV.beginRun(r);
+  const run = r.salvage;
+  SV.openHaul(r);
+  const pub = SV.publicRun(r, run);
+  assert.ok(!('personal' in pub), 'public state must not expose run.personal');
+  const aView = G.viewFor(r, ps[0].id);
+  const bView = G.viewFor(r, ps[1].id);
+  assert.ok(aView.hook, 'owner sees own hook');
+  assert.ok(bView.hook, 'each player sees own hook');
+  assert.strictEqual(JSON.stringify(pub).includes('"personal"'), false, 'public must not leak personal map');
+  run.personal[ps[0].id] = 'core';
+  run.personal[ps[1].id] = 'relic';
+  run.personal[ps[2].id] = 'rescue';
+  const aView2 = G.viewFor(r, ps[0].id);
+  const bView2 = G.viewFor(r, ps[1].id);
+  assert.strictEqual(aView2.hook, 'core');
+  assert.strictEqual(bView2.hook, 'relic');
+  assert.ok(!JSON.stringify(bView2).includes('"hook":"core"') || bView2.hook === 'core', 'B must not see A core hook');
+  SV.finishRun(r, 'test');
+  assert.strictEqual(SV.privateHook(r, run, ps[0].id), null);
+  assert.ok(run.result && run.result.personal, 'debrief reveals hooks');
+  clearTimeout(r.salvageTimer); clearInterval(r.salvageTick);
+});
+
+t('SALVAGE: personal credit goes to the banker, not bystanders', () => {
+  const { r, ps } = salvageRoom(2);
+  SV.beginRun(r);
+  const run = r.salvage;
+  run.personal[run.roster[0]] = 'relic';
+  run.personal[run.roster[1]] = 'relic';
+  SV.openHaul(r);
+  const [a, b] = run.roster;
+  const relic = run.world.items.find(i => i.kind === 'relic');
+  run.parts[a].x = relic.x; run.parts[a].y = relic.y;
+  SV.pickup(run, a, relic.id);
+  run.parts[a].x = run.world.depot.x; run.parts[a].y = run.world.depot.y;
+  SV.deliver(run, a);
+  const s = SV.scoreRun(run);
+  assert.strictEqual(s.personalDone[a], true, 'banker completes relic hook');
+  assert.strictEqual(s.personalDone[b], false, 'bystander does not complete hook');
+  run.personal[a] = 'core';
+  run.personal[b] = 'core';
+  const core = run.world.items.find(i => i.kind === 'core');
+  run.parts[b].x = core.x; run.parts[b].y = core.y;
+  SV.pickup(run, b, core.id);
+  run.parts[b].x = run.world.depot.x; run.parts[b].y = run.world.depot.y;
+  SV.deliver(run, b);
+  const s2 = SV.scoreRun(run);
+  assert.strictEqual(s2.personalDone[b], true);
+  assert.strictEqual(s2.personalDone[a], false, 'A did not bank core');
+  clearTimeout(r.salvageTimer); clearInterval(r.salvageTick);
+});
+
+t('SALVAGE: downed and disconnect edge cases drop loot safely', () => {
+  const { r, ps } = salvageRoom(3);
+  SV.beginRun(r);
+  const run = r.salvage;
+  SV.openHaul(r);
+  const [a, b] = run.roster;
+  const cell = run.world.items.find(i => i.kind === 'cell');
+  run.parts[a].x = cell.x; run.parts[a].y = cell.y;
+  SV.pickup(run, a, cell.id);
+  assert.strictEqual(run.parts[a].inv.length, 1);
+  G.removePlayer(r, ps[0].id);
+  assert.strictEqual(run.parts[a].inv.length, 0, 'disconnect drops carried items');
+  assert.strictEqual(run.parts[a].alive, false);
+  assert.ok(r.hostId, 'host migration keeps a host');
+  clearTimeout(r.salvageTimer); clearInterval(r.salvageTick);
+});
+
+t('SALVAGE: phase gates reject out-of-phase actions', () => {
+  const { r } = salvageRoom(2);
+  SV.beginRun(r);
+  const run = r.salvage;
+  run.phase = 'debrief';
+  const pid = run.roster[0];
+  throwsSalvage(() => SV.pickup(run, pid, run.world.items[0].id), /over/i);
+  throwsSalvage(() => SV.deliver(run, pid), /over/i);
+  throwsSalvage(() => SV.useKit(run, pid, run.roster[1]), /over/i);
+  throwsSalvage(() => SV.movePlayer(run, pid, 100, 100), /over/i);
+  clearTimeout(r.salvageTimer); clearInterval(r.salvageTick);
+});
+
 t('SALVAGE: short-handed crew ends the haul instead of stranding players', () => {
   const { r, ps } = salvageRoom(2);
   SV.beginRun(r);

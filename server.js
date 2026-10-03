@@ -195,31 +195,42 @@ wss.on('connection', ws => {
       } else if (m.t === 'category' && room.hostId === p.id && room.phase === 'lobby') {
         room.category = String(m.v).slice(0, 30);
       } else if (m.t === 'start') {
-        if (room.mode === 'salvage') SV.beginRun(room);
+        if (room.mode === 'salvage') {
+          if (room.hostId !== p.id) throw new SV.SalvageErr('Only the host can start the haul.');
+          SV.beginRun(room, p.id);
+        }
         else G.startGame(room, p.id);
       } else if (m.t === 'haul_open' && room.hostId === p.id) {
         if (!room.salvage || room.phase !== 'salvage-staging') throw new SV.SalvageErr('Haul is not staging.');
         SV.openHaul(room);
       } else if (m.t === 'move' && room.salvage) {
-        if (rid && rid !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        if ((rid || m.haulId) && (rid || m.haulId) !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        if (!room.salvage.roster.includes(p.id)) throw new SV.SalvageErr('You are not on this haul.');
         SV.movePlayer(room.salvage, p.id, Number(m.x), Number(m.y));
         push(room);
         return;
       } else if (m.t === 'grab' && room.salvage) {
-        if (rid && rid !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        if ((rid || m.haulId) && (rid || m.haulId) !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        if (!room.salvage.roster.includes(p.id)) throw new SV.SalvageErr('You are not on this haul.');
         SV.pickup(room.salvage, p.id, String(m.item));
       } else if (m.t === 'drop' && room.salvage) {
+        if ((rid || m.haulId) && (rid || m.haulId) !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        if (!room.salvage.roster.includes(p.id)) throw new SV.SalvageErr('You are not on this haul.');
         SV.dropItem(room.salvage, p.id, String(m.item));
       } else if (m.t === 'patch' && room.salvage) {
+        if ((rid || m.haulId) && (rid || m.haulId) !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        if (!room.salvage.roster.includes(p.id)) throw new SV.SalvageErr('You are not on this haul.');
         SV.useKit(room.salvage, p.id, String(m.target));
       } else if (m.t === 'bank' && room.salvage) {
+        if ((rid || m.haulId) && (rid || m.haulId) !== room.roundId) throw new SV.SalvageErr('Stale haul action.');
+        if (!room.salvage.roster.includes(p.id)) throw new SV.SalvageErr('You are not on this haul.');
         SV.deliver(room.salvage, p.id);
       } else if (m.t === 'quit_haul' && room.hostId === p.id && room.salvage) {
         SV.quitToLobby(room);
       } else if (m.t === 'again_haul' && room.hostId === p.id && room.phase === 'salvage-debrief') {
         SV.quitToLobby(room);
         room.players.forEach(x => { x.ready = true; });
-        SV.beginRun(room);
+        SV.beginRun(room, p.id);
       } else if (m.t === 'clue') {
         G.submitClue(room, p.id, m.word, rid);
       } else if (m.t === 'ready_discuss') {

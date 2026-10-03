@@ -829,7 +829,7 @@ function viewFor(room, pid) {
     if (p && room.salvage.parts[pid]) {
       const part = room.salvage.parts[pid];
       v.carry = part.inv.map(i => ({ id: i.id, kind: i.kind, name: i.name }));
-      v.hook = room.salvage.personal[pid] || null;
+      v.hook = SV.privateHook(room, room.salvage, pid);
     }
     return v;
   }

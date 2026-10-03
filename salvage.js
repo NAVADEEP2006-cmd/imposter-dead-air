@@ -61,8 +61,8 @@ function playerStart(i, n) {
 function createRun(room, playerIds) {
   const world = buildWorld(playerIds.length);
   const parts = {};
-  playerIds.forEach((id, i) => { const s = playerStart(i, playerIds.length); parts[id] = { id, x: s.x, y: s.y, tx: s.x, ty: s.y, alive: true, down: false, downAt: 0, rescuedBy: null, inv: [], rescued: 0, deliveredMission: 0, deliveredLoot: 0, risked: 0, lastMove: 0 }; });
-  return { phase: 'staging', roundId: crypto.randomBytes(8).toString('hex'), startedAt: Date.now(), extractAt: 0, endsAt: 0, world, parts, roster: [...playerIds], personal: {}, log: [{ t: Date.now(), msg: 'Haul crew staged. Grab cells, mind the weight.' }], result: null, timer: null };
+  playerIds.forEach((id, i) => { const s = playerStart(i, playerIds.length); parts[id] = { id, x: s.x, y: s.y, tx: s.x, ty: s.y, alive: true, down: false, downAt: 0, rescuedBy: null, inv: [], rescued: 0, deliveredMission: 0, deliveredLoot: 0, bankedCoreBy: 0, bankedRelicBy: 0, risked: 0, lastMove: 0 }; });
+  return { phase: 'staging', roundId: room.roundId, startedAt: Date.now(), extractAt: 0, endsAt: 0, world, parts, roster: [...playerIds], personal: {}, log: [{ t: Date.now(), msg: 'Haul crew staged. Grab cells, mind the weight.' }], result: null, timer: null };
 }
 function slotsUsed(part) { return part.inv.reduce((n, it) => n + (it.slots || 1), 0); }
 function weightCarried(part) { return part.inv.reduce((n, it) => n + (it.weight || 1), 0); }
@@ -79,6 +79,14 @@ function missionDelivered(run) { return run.world.cells.reduce((n, c) => n + c.f
 function near(a, b, r) { return dist2(a, b) <= r; }
 function itemById(run, itemId) { return run.world.items.find(i => i.id === itemId); }
 function nameOf(run, pid) { return (run.roomNames && run.roomNames[pid]) || 'Crew'; }
+function requireSalvagePhase(run, allowed) {
+  const ph = run.phase;
+  if (!allowed.includes(ph)) {
+    if (ph === 'staging') throw new SalvageErr('Haul has not opened yet.');
+    if (ph === 'debrief') throw new SalvageErr('Haul is over.');
+    throw new SalvageErr('Action not allowed in this phase.');
+  }
+}
 function validateCarrier(run, pid) {
   const part = run.parts[pid];
   if (!part || !run.roster.includes(pid)) throw new SalvageErr('You are not on this haul.');
@@ -89,7 +97,9 @@ function validateCarrier(run, pid) {
 function movePlayer(run, pid, x, y) {
   const part = run.parts[pid];
   if (!part || !run.roster.includes(pid)) throw new SalvageErr('You are not on this haul.');
-  if (!part.alive || part.down) return part;
+  if (!part.alive) throw new SalvageErr('You are out of this haul.');
+  if (part.down) return part;
+  if (run.phase === 'debrief') throw new SalvageErr('Haul is over.');
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SalvageErr('Bad coordinates.');
   x = clamp(x, 12, WORLD_W - 12);
   y = clamp(y, 12, WORLD_H - 12);
@@ -149,6 +159,7 @@ function stepRun(run, now) {
   return moved;
 }
 function pickup(run, pid, itemId) {
+  requireSalvagePhase(run, ['staging', 'run', 'extract']);
   const part = validateCarrier(run, pid);
   const it = itemById(run, itemId);
   if (!it) throw new SalvageErr('Nothing there.');
@@ -161,6 +172,7 @@ function pickup(run, pid, itemId) {
   return it;
 }
 function dropItem(run, pid, itemId) {
+  if (run.phase === 'debrief') throw new SalvageErr('Haul is over.');
   const part = validateCarrier(run, pid);
   const ix = part.inv.findIndex(i => i.id === itemId);
   if (ix < 0) throw new SalvageErr('Not carrying that.');
@@ -172,6 +184,7 @@ function dropItem(run, pid, itemId) {
   return it;
 }
 function useKit(run, pid, targetId) {
+  requireSalvagePhase(run, ['staging', 'run', 'extract']);
   const part = validateCarrier(run, pid);
   const kitIx = part.inv.findIndex(i => i.kind === 'medkit');
   if (kitIx < 0) throw new SalvageErr('No patch kit in your hands.');
@@ -187,6 +200,7 @@ function useKit(run, pid, targetId) {
   return target;
 }
 function deliver(run, pid) {
+  requireSalvagePhase(run, ['staging', 'run', 'extract']);
   const part = validateCarrier(run, pid);
   if (!near(part, run.world.depot, run.world.depot.r)) throw new SalvageErr('Haul it back to the depot circle.');
   if (!part.inv.length) throw new SalvageErr('Empty hands. Nothing to bank.');
@@ -194,9 +208,11 @@ function deliver(run, pid) {
   for (const it of part.inv) {
     if (it.mission) {
       const cell = run.world.cells.find(c => c.filled < c.need);
-      if (cell) { cell.filled += 1; it.carriedBy = null; it.banked = true; mission += 1; score += it.score; part.deliveredMission += 1; continue; }
+      if (cell) { cell.filled += 1; it.carriedBy = null; it.banked = true; it.bankedBy = pid; mission += 1; score += it.score; part.deliveredMission += 1; continue; }
     }
-    it.carriedBy = null; it.banked = true; loot += 1; score += it.score; part.deliveredLoot += 1;
+    it.carriedBy = null; it.banked = true; it.bankedBy = pid; loot += 1; score += it.score; part.deliveredLoot += 1;
+    if (it.kind === 'core') part.bankedCoreBy += 1;
+    if (it.kind === 'relic') part.bankedRelicBy += 1;
   }
   part.inv = [];
   if (missionDelivered(run) >= STATION_NEED && run.phase === 'run') pushLog(run, 'Station cells seated. Dock window opening…');
@@ -212,7 +228,9 @@ function runPhase(room) {
   return run.phase;
 }
 function assignPersonal(run) { for (const id of run.roster) run.personal[id] = pick(['relic', 'rescue', 'core']); }
-function beginRun(room) {
+function beginRun(room, requesterId) {
+  if (room.phase !== 'lobby') throw new SalvageErr('Haul can only start from the lobby.');
+  if (requesterId && room.hostId && requesterId !== room.hostId) throw new SalvageErr('Only the host can start the haul.');
   const active = room.players.filter(p => p.connected && !p.spectator);
   if (active.length < 2) throw new SalvageErr('Need at least 2 crew to haul.');
   room.round = (room.round || 0) + 1;
@@ -225,6 +243,7 @@ function beginRun(room) {
   room.deadline = Date.now() + 20000;
   clearTimeout(room.salvageTimer);
   room.salvageTimer = setTimeout(() => { if (room.phase === 'salvage-staging') openHaul(room); }, 20000);
+  if (room.salvageTimer.unref) room.salvageTimer.unref();
   return run;
 }
 function openHaul(room) {
@@ -269,8 +288,8 @@ function scoreRun(run) {
   for (const id of run.roster) {
     const p = run.parts[id]; const hook = run.personal[id]; let done = false;
     if (hook === 'rescue') done = p.rescued > 0;
-    else if (hook === 'core') done = run.world.items.some(i => i.kind === 'core' && i.banked);
-    else done = run.world.items.some(i => i.kind === 'relic' && i.banked);
+    else if (hook === 'core') done = (p.bankedCoreBy || 0) > 0;
+    else done = (p.bankedRelicBy || 0) > 0;
     personalDone[id] = done;
     if (done && out.includes(id)) bonus += 150;
   }
@@ -291,12 +310,16 @@ function finishRun(room, why) {
   room.onChange();
 }
 function quitToLobby(room) { clearTimeout(room.salvageTimer); clearInterval(room.salvageTick); room.salvage = null; room.phase = 'lobby'; room.game = null; room.roundId = null; room.deadline = null; room.players.forEach(p => { p.ready = false; p.spectator = false; }); }
+function privateHook(room, run, pid) {
+  if (!run || run.phase === 'debrief') return null;
+  return run.personal[pid] || null;
+}
 function publicRun(room, run) {
   const items = run.world.items.filter(i => !i.banked && !i.carriedBy && !i.broken);
   const parts = run.roster.map(id => {
     const p = run.parts[id];
     return { id, x: Math.round(p.x), y: Math.round(p.y), alive: p.alive, down: p.down, slots: slotsUsed(p), weight: weightCarried(p), speed: Math.round(speedFor(p)), carry: p.inv.map(i => ({ id: i.id, kind: i.kind, name: i.name, heavy: i.heavy, volatile: i.volatile })) };
   });
-  return { phase: run.phase, roundId: run.roundId, w: run.world.w, h: run.world.h, depot: run.world.depot, dock: run.world.dock, cells: run.world.cells, hazards: run.world.hazards, items: items.map(i => ({ id: i.id, kind: i.kind, name: i.name, x: Math.round(i.x), y: Math.round(i.y), heavy: i.heavy, fragile: i.fragile, volatile: i.volatile })), parts, need: STATION_NEED, mission: missionDelivered(run), deadline: room.deadline, log: run.log.slice(-6), personal: run.personal, result: run.result };
+  return { phase: run.phase, roundId: room.roundId || run.roundId, w: run.world.w, h: run.world.h, depot: run.world.depot, dock: run.world.dock, cells: run.world.cells, hazards: run.world.hazards, items: items.map(i => ({ id: i.id, kind: i.kind, name: i.name, x: Math.round(i.x), y: Math.round(i.y), heavy: i.heavy, fragile: i.fragile, volatile: i.volatile })), parts, need: STATION_NEED, mission: missionDelivered(run), deadline: room.deadline, log: run.log.slice(-6), result: run.phase === 'debrief' ? run.result : null };
 }
-module.exports = { SalvageErr, SALVAGE_PHASES, WORLD_W, WORLD_H, MAX_SLOTS, MAX_WEIGHT, INTERACT_R, MATCH_MS, EXTRACT_MS, TICK_MS, CELLS, STATION_NEED, ITEM_DEFS, int, pick, clamp, dist2, makeItem, buildWorld, playerStart, createRun, slotsUsed, weightCarried, speedFor, pushLog, missionDelivered, near, itemById, nameOf, DOWN_REVIVE_R, DOWN_MS, DOWN_PENALTY_SLOTS, validateCarrier, movePlayer, downPlayer, dropAll, stepRun, pickup, dropItem, useKit, deliver, runPhase, assignPersonal, beginRun, openHaul, openExtract, extractedIds, maybeEarlyFinish, scoreRun, finishRun, quitToLobby, publicRun };
+module.exports = { SalvageErr, SALVAGE_PHASES, WORLD_W, WORLD_H, MAX_SLOTS, MAX_WEIGHT, INTERACT_R, MATCH_MS, EXTRACT_MS, TICK_MS, CELLS, STATION_NEED, ITEM_DEFS, int, pick, clamp, dist2, makeItem, buildWorld, playerStart, createRun, slotsUsed, weightCarried, speedFor, pushLog, missionDelivered, near, itemById, nameOf, DOWN_REVIVE_R, DOWN_MS, DOWN_PENALTY_SLOTS, validateCarrier, requireSalvagePhase, movePlayer, downPlayer, dropAll, stepRun, pickup, dropItem, useKit, deliver, runPhase, assignPersonal, beginRun, openHaul, openExtract, extractedIds, maybeEarlyFinish, scoreRun, finishRun, quitToLobby, publicRun, privateHook };
